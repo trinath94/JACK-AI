@@ -12,6 +12,7 @@ import { PlannedPage } from "./pages/PlannedPage";
 import { SecurityPage } from "./pages/SecurityPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { TasksPage } from "./pages/TasksPage";
+import { UsagePage } from "./pages/UsagePage";
 import { VoicePage } from "./pages/VoicePage";
 
 export function shortcutRows(ptt: string | null): ShortcutRow[] {
@@ -96,6 +97,7 @@ export function App() {
     case "home": content = <HomePage commandRef={commandRef} shortcut={ptt} />; break;
     case "voice": content = <VoicePage shortcut={ptt} />; break;
     case "tasks": content = <TasksPage />; break;
+    case "usage": content = <UsagePage />; break;
     case "security": content = <SecurityPage />; break;
     case "settings": content = <SettingsPage appearance={appearance} onChange={setAppearance} shortcuts={shortcutRows(ptt)} />; break;
     default: content = <PlannedPage item={item} />;

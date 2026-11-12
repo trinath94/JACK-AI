@@ -15,8 +15,11 @@
 #      with speech models (JACK_MODELS_DIR) the command becomes a voice task
 #  10. (VOICE_E2E=1 + models) with the wake word on, "Hey Jack." → spoken reply →
 #      "Create a professional company logo." becomes a wake-triggered voice task
+#  11. (AI_E2E=1) Usage and Billing: an Anthropic API key typed into the UI is stored (never
+#      written to the database or logs), "Test connection" reaches a local fake Messages
+#      API with the key as a Bearer token, and the call is recorded with an estimated cost
 #
-# Usage: [VOICE_E2E=1] tests/e2e/linux_smoke.sh <jack-ai binary> <output dir>
+# Usage: [VOICE_E2E=1] [AI_E2E=1] tests/e2e/linux_smoke.sh <jack-ai binary> <output dir>
 # Requires: Xvfb, openbox, wmctrl, xdotool, imagemagick (import), dbus, python3;
 #           for VOICE_E2E=1 also pulseaudio, pulseaudio-utils, libasound2-plugins, sox.
 set -uo pipefail
@@ -49,6 +52,17 @@ start_app() { "$APP" >> "$OUT/app.log" 2>&1 & APP_PID=$!; }
 
 if [[ -n "$(all_service_pids)" ]]; then echo "stale jack-service processes running; aborting"; exit 2; fi
 
+AI_KEY="sk-ant-api03-$(printf 'T%.0s' $(seq 1 40))"  # the fake API's accepted test key
+if [[ "${AI_E2E:-0}" == 1 ]]; then
+  REPO="$(cd "$(dirname "$0")/../.." && pwd)"
+  uv run --project "$REPO/services/api" python "$REPO/tests/e2e/run_fake_anthropic.py" "$OUT/fake_api.url" \
+    > "$OUT/fake_api.log" 2>&1 & FAKE_API=$!
+  wait_until 30 test -s "$OUT/fake_api.url"
+  export JACK_ANTHROPIC_BASE_URL="$(cat "$OUT/fake_api.url")"
+  # Linux CI has no OS keyring; this opt-in test store is shown in the UI as "not secure".
+  export JACK_INSECURE_TEST_CREDENTIALS=1
+fi
+
 if [[ "${VOICE_E2E:-0}" == 1 ]]; then
   # Virtual microphone: a null sink whose monitor is remapped as a capture source, routed to
   # ALSA's default device so PortAudio (inside the frozen service) uses it like a real mic.
@@ -73,7 +87,7 @@ Xvfb "$DISPLAY" -screen 0 1440x900x24 >/dev/null 2>&1 & XVFB=$!
 sleep 1
 eval "$(dbus-launch --sh-syntax)"
 openbox >/dev/null 2>&1 & WM=$!
-trap 'kill ${APP_PID:-} $WM $XVFB $DBUS_SESSION_BUS_PID 2>/dev/null; pkill -f "^$BIN_DIR/jack-service" 2>/dev/null; true' EXIT
+trap 'kill ${APP_PID:-} ${FAKE_API:-} $WM $XVFB $DBUS_SESSION_BUS_PID 2>/dev/null; pkill -f "^$BIN_DIR/jack-service" 2>/dev/null; true' EXIT
 sleep 1
 
 # 1–2: launch
@@ -100,6 +114,37 @@ if [[ -n "$WIN" ]]; then
     || bad "typed command not persisted"
   sleep 1.5
   import -window root "$OUT/02-task-created.png"
+fi
+
+# 11: AI provider setup through the UI against a local fake Anthropic API
+if [[ "${AI_E2E:-0}" == 1 && -n "$WIN" ]]; then
+  xdotool windowactivate --sync "$WIN" 2>/dev/null || true
+  xdotool key ctrl+5; sleep 2
+  import -window root "$OUT/08-usage-before.png"
+  # Window-relative positions of the key field and Test connection (calibrated on 08/09 shots).
+  xdotool mousemove --window "$WIN" "${AI_KEY_X:-487}" "${AI_KEY_Y:-572}" click 1
+  xdotool type --delay 5 "$AI_KEY"
+  xdotool key Return
+  wait_until 15 q_ge "select count(*) from audit_events where action='credential.set'" 1 \
+    && ok "API key saved from the UI (audited as credential.set)" || bad "API key not saved"
+  sleep 2
+  import -window root "$OUT/08b-key-saved.png"
+  xdotool mousemove --window "$WIN" "${AI_TEST_X:-361}" "${AI_TEST_Y:-823}" click 1
+  wait_until 30 q_ge "select count(*) from usage_records where purpose='connection_test' and succeeded=1" 1 \
+    && ok "Test connection reached the (fake) Anthropic API and was recorded" || bad "connection test not recorded"
+  COST=$(q "select cost_usd from usage_records where purpose='connection_test' and succeeded=1 limit 1")
+  [[ -n "$COST" && "$COST" != 0 ]] && ok "usage recorded with an estimated cost (\$$COST)" || bad "no cost recorded"
+  LAST=$(tail -1 "$OUT/fake_api.requests.jsonl" 2>/dev/null)
+  [[ "$LAST" == *'"bearer_present": true'* && "$LAST" == *'"fallbacks": "default"'* ]] \
+    && ok "API received the stored key as a Bearer token, with refusal fallback on" || bad "unexpected API request: $LAST"
+  if grep -aq "$AI_KEY" "$DB" "$DB"-wal "$OUT/app.log" "$XDG_DATA_HOME/ai.jack.desktop/logs/"* 2>/dev/null; then
+    bad "API key found in the database or logs"
+  else
+    ok "API key appears nowhere in the database or logs"
+  fi
+  sleep 1
+  import -window root "$OUT/09-usage-after.png"
+  xdotool key ctrl+1; sleep 1
 fi
 
 # 9: global hotkey push-to-talk with real audio capture

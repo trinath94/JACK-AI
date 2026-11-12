@@ -89,3 +89,11 @@ export function formatBytes(n: number): string {
   }
   return `${v.toFixed(v >= 10 || i === 0 ? 0 : 1)} ${units[i]}`;
 }
+
+export function usd(v: string | null | undefined, digits = 2): string {
+  if (v == null) return "—";
+  const n = Number(v);
+  // Tiny amounts (single requests) need more places to stay honest: $0.000148, not $0.0001.
+  const max = n !== 0 && Math.abs(n) < 0.01 ? 6 : Math.max(digits, 4);
+  return `$${n.toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: max })}`;
+}

@@ -309,3 +309,86 @@ describe("Notifications, metrics, settings", () => {
     expect(document.documentElement).not.toHaveClass("dark");
   });
 });
+
+
+describe("Usage and Billing (M4)", () => {
+  beforeEach(() => {
+    FakeWebSocket.instances = [];
+    localStorage.clear();
+    service = mockService();
+    vi.stubGlobal("fetch", vi.fn(service.fetchImpl));
+  });
+
+  it("stores an API key without ever showing it back, then tests the connection", async () => {
+    renderApp();
+    const ws = await connect();
+    fireEvent.keyDown(window, { key: "5", ctrlKey: true });
+    expect(await screen.findByText("Windows Credential Manager")).toBeInTheDocument();
+    const input = screen.getByLabelText("Anthropic API key");
+    expect(input).toHaveAttribute("type", "password");
+    fireEvent.change(input, { target: { value: "sk-ant-api03-SECRETSECRETSECRET9z9z" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save key" }));
+    await waitFor(() => expect(service.state.calls.some((c) => c.method === "PUT" && c.path === "/v1/ai/anthropic/key")).toBe(true));
+    act(() => ws.emit("ai.status", { changed: "anthropic.key" }));
+    expect(await screen.findByTestId("key-hint")).toHaveTextContent("sk-ant-…9z9z");
+    expect(document.body.textContent).not.toContain("SECRETSECRETSECRET");
+    expect(await screen.findByRole("option", { name: "Claude Future 9 (no price data)" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Test connection/ }));
+    expect(await screen.findByTestId("test-ok")).toHaveTextContent("claude-opus-5-5");
+  });
+
+  it("separates API spend from Claude Code usage and saves limits", async () => {
+    service.state.ai.month.api = { ...service.state.ai.month.api, requests: 3, cost_usd: "1.2345" };
+    service.state.ai.month.claude_code = { ...service.state.ai.month.claude_code, requests: 2, cost_usd: "0.5" };
+    service.state.ai.month.monthly_limit_usd = "10";
+    service.state.ai.month.limit_used_pct = 12.3;
+    renderApp();
+    await connect();
+    fireEvent.keyDown(window, { key: "5", ctrlKey: true });
+    expect(await screen.findByTestId("api-spend")).toHaveTextContent("$1.2345");
+    expect(screen.getByTestId("cc-usage")).toHaveTextContent("$0.50");
+    expect(screen.getByText(/never counted toward API spend/)).toBeInTheDocument();
+    expect(screen.getByRole("meter", { name: "Monthly limit $10.00" })).toHaveAttribute("aria-valuenow", "12");
+    fireEvent.change(screen.getByLabelText("Monthly ($)"), { target: { value: "25" } });
+    fireEvent.change(screen.getByLabelText("Per task ($)"), { target: { value: "2.5" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save limits" }));
+    await waitFor(() => {
+      const patch = service.state.calls.find((c) => c.path === "/v1/ai/settings");
+      expect(patch?.body).toEqual({ limits: { monthly_usd: "25", per_task_usd: "2.5", per_project_usd: null, alert_pct: [50, 80, 100] } });
+    });
+  });
+
+  it("detects Claude Code and keeps provider fallback opt-in", async () => {
+    renderApp();
+    await connect();
+    fireEvent.keyDown(window, { key: "5", ctrlKey: true });
+    fireEvent.click(await screen.findByRole("button", { name: /Detect/ }));
+    const det = await screen.findByLabelText("Claude Code detection");
+    expect(det).toHaveTextContent("2.1.322");
+    expect(det).toHaveTextContent("yes (claude.ai)");
+    const fb = screen.getByRole("switch", { name: /Fall back to the other provider/ });
+    expect(fb).not.toBeChecked();
+    fireEvent.click(fb);
+    await waitFor(() => expect(service.state.calls.some((c) => c.path === "/v1/ai/settings" && JSON.stringify(c.body) === '{"fallback":{"enabled":true}}')).toBe(true));
+  });
+
+  it("test console shows the answer with model, tokens and cost", async () => {
+    renderApp();
+    await connect();
+    fireEvent.keyDown(window, { key: "5", ctrlKey: true });
+    fireEvent.change(await screen.findByLabelText("Prompt"), { target: { value: "Say hello" } });
+    fireEvent.click(screen.getByRole("button", { name: /^Send$/ }));
+    const out = await screen.findByTestId("console-result");
+    expect(out).toHaveTextContent("Hello from Claude");
+    expect(out).toHaveTextContent("20 in / 6 out");
+    expect(out).toHaveTextContent("$0.0002");
+  });
+
+  it("home shows Claude as not configured instead of a fake status", async () => {
+    renderApp();
+    await connect();
+    const list = await screen.findByRole("list", { name: "Integrations" });
+    expect(await within(list).findByText("not configured")).toBeInTheDocument();
+    expect(within(list).getByTestId("home-api-spend")).toHaveTextContent("$0.00");
+  });
+});

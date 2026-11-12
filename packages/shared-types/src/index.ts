@@ -61,6 +61,8 @@ export type WsEvent =
   | { type: "event"; topic: "voice.wake"; ts: string; data: { transcript: string } }
   | { type: "event"; topic: "voice.reply"; ts: string; data: { text: string } }
   | { type: "event"; topic: "voice.models"; ts: string; data: SpeechModel[] }
+  | { type: "event"; topic: "ai.status"; ts: string; data: { changed: string } }
+  | { type: "event"; topic: "ai.usage"; ts: string; data: { provider: string; cost_usd?: string | null; failed?: string } }
   | { type: "event"; topic: "voice.error"; ts: string; data: { code: string; message: string } }
   | { type: "event"; topic: "notification.created"; ts: string; data: Notification }
   | { type: "event"; topic: "notification.read"; ts: string; data: { ids: string[] } }
@@ -78,4 +80,120 @@ export interface BackendConnection {
   baseUrl: string;
   wsUrl: string;
   token: string;
+}
+
+/* ------------------------------------------------------------------ AI providers (M4)
+ * The /v1/ai routes return untyped JSON in the OpenAPI schema; these interfaces mirror
+ * services/api/src/jack_api/ai/service.py. */
+export type AIProviderId = "anthropic" | "claude_code";
+export type AIEffort = "low" | "medium" | "high" | "xhigh" | "max";
+
+export interface AITestResult {
+  ok: boolean;
+  at: string;
+  model: string | null;
+  latency_ms: number | null;
+  reply: string | null;
+  error: string | null;
+  error_code: string | null;
+}
+
+export interface UsageBucket {
+  requests: number;
+  failed: number;
+  input_tokens: number;
+  output_tokens: number;
+  cache_read_tokens: number;
+  cache_write_tokens: number;
+  cost_usd: string;
+  unpriced_requests: number;
+}
+
+export interface MonthSummary {
+  month: string;
+  api: UsageBucket;
+  claude_code: UsageBucket;
+  by_model: { model: string; billing_kind: "api" | "claude_code"; input_tokens: number; output_tokens: number; cost_usd: string }[];
+  by_day: { day: string; cost_usd: string }[];
+  monthly_limit_usd: string | null;
+  limit_used_pct: number | null;
+}
+
+export interface AIStatus {
+  credential_store: { kind: string; secure: boolean; available: boolean; detail: string | null };
+  anthropic: {
+    configured: boolean;
+    key_hint: string | null;
+    settings: { model: string; effort: AIEffort | null; timeout_s: number; max_retries: number; refusal_fallback: boolean };
+    last_test: AITestResult | null;
+    price_known: boolean;
+  };
+  claude_code: {
+    settings: { enabled: boolean; binary: string | null; model: string | null; timeout_s: number };
+    detected: ClaudeCodeDetection | null;
+    last_test: AITestResult | null;
+  };
+  routing: { reasoning: AIProviderId; coding: AIProviderId };
+  fallback: { enabled: boolean };
+  limits: { monthly_usd: string | null; per_task_usd: string | null; per_project_usd: string | null; alert_pct: number[] };
+  prices_as_of: string;
+  month: MonthSummary;
+}
+
+export interface ClaudeCodeDetection {
+  installed: boolean;
+  binary: string | null;
+  version: string | null;
+  logged_in: boolean;
+  auth_method: string | null;
+  api_provider: string | null;
+  detail: string | null;
+}
+
+export interface AIModel {
+  id: string;
+  display_name: string;
+  max_input_tokens: number | null;
+  max_tokens: number | null;
+  price_known: boolean;
+}
+
+export interface AICompletion {
+  text: string;
+  provider: AIProviderId;
+  model_requested: string;
+  model_served: string;
+  stop_reason: string | null;
+  billing_kind: "api" | "claude_code";
+  latency_ms: number;
+  refusal_category: string | null;
+  fallbacks: [string, string][];
+  usage: { model: string; input_tokens: number; output_tokens: number; cache_read: number; cache_write_5m: number; cache_write_1h: number }[];
+  cost_usd: string | null;
+  reported_cost_usd: string | null;
+}
+
+export interface UsageRecordRow {
+  id: string;
+  occurred_at: string;
+  provider: AIProviderId;
+  billing_kind: "api" | "claude_code";
+  model: string;
+  purpose: string;
+  task_id: string | null;
+  input_tokens: number;
+  output_tokens: number;
+  cost_usd: string | null;
+  cost_source: string;
+  succeeded: boolean;
+  error_code: string | null;
+  latency_ms: number | null;
+}
+
+export interface AISettingsPatch {
+  anthropic?: Partial<AIStatus["anthropic"]["settings"]>;
+  claude_code?: Partial<AIStatus["claude_code"]["settings"]>;
+  routing?: Partial<AIStatus["routing"]>;
+  fallback?: Partial<AIStatus["fallback"]>;
+  limits?: Partial<{ monthly_usd: string | null; per_task_usd: string | null; per_project_usd: string | null; alert_pct: number[] }>;
 }

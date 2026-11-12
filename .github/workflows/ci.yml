@@ -167,7 +167,7 @@ jobs:
         working-directory: apps/desktop
         run: pnpm tauri build --bundles deb
       - name: Smoke test
-        run: VOICE_E2E=1 JACK_MODELS_DIR=$HOME/jack-models tests/e2e/linux_smoke.sh apps/desktop/src-tauri/target/release/jack-ai e2e-out
+        run: VOICE_E2E=1 AI_E2E=1 JACK_MODELS_DIR=$HOME/jack-models tests/e2e/linux_smoke.sh apps/desktop/src-tauri/target/release/jack-ai e2e-out
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -226,6 +226,10 @@ jobs:
             if ($models.Count -ne 3) { throw "speech model registry missing" }
             "TTS engine: $($voice.capabilities.speech_synthesis_engine) available=$($voice.capabilities.speech_synthesis) $($voice.capabilities.speech_synthesis_detail)" | Write-Host
             if ($voice.capabilities.speech_synthesis_engine -ne "sapi") { throw "SAPI text-to-speech not selected" }
+            # AI providers (M4): the frozen service must find Windows Credential Manager.
+            $ai = Invoke-RestMethod http://127.0.0.1:48765/v1/ai/status -Headers $h
+            "Credential store: $($ai.credential_store.kind) secure=$($ai.credential_store.secure)" | Write-Host
+            if (-not $ai.credential_store.secure -or $ai.credential_store.kind -notlike "*Windows*") { throw "Windows Credential Manager not available in jack-service.exe" }
           } finally { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue }
       - name: Rust tests on Windows (includes Job Object supervisor test)
         working-directory: apps/desktop/src-tauri

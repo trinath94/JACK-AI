@@ -2,18 +2,16 @@ import type { AuditEvent, TaskDetail } from "@jack/shared-types";
 import { CornerDownLeft, RotateCcw, ShieldCheck, X } from "lucide-react";
 import { useEffect, useState, type FormEvent, type ReactNode, type RefObject } from "react";
 import { PushToTalk } from "../components/PushToTalk";
-import { Card, Meter, Pill, formatBytes, formatTime, healthTone, taskTone } from "../components/ui";
+import { Card, Meter, Pill, formatBytes, formatTime, healthTone, taskTone, usd } from "../components/ui";
 import { VoiceOrb, type OrbState } from "../components/VoiceOrb";
 import { ApiRequestError } from "../lib/api";
 import { useBackend } from "../lib/backend";
 
 const TERMINAL = new Set(["COMPLETED", "CANCELLED", "FAILED", "ROLLED_BACK"]);
 
-// Integrations shown on the dashboard. None is configurable before its milestone; the
-// dashboard says so instead of showing placeholder numbers.
-const INTEGRATIONS = [
-  { name: "Claude (Anthropic API / Claude Code)", milestone: 4 },
-  { name: "API usage & cost", milestone: 4 },
+// Integrations not yet available: shown with the milestone that delivers them, never with
+// placeholder numbers.
+const LATER_INTEGRATIONS = [
   { name: "AI agents", milestone: 7 },
   { name: "GitHub", milestone: 9 },
   { name: "Servers (SSH)", milestone: 10 },
@@ -65,16 +63,7 @@ export function HomePage({ commandRef, shortcut }: { commandRef: RefObject<HTMLI
           </p>
         </Card>
         <RecentEvents />
-        <Card title="Integrations">
-          <ul className="space-y-2 text-sm" aria-label="Integrations">
-            {INTEGRATIONS.map((i) => (
-              <li key={i.name} className="flex items-center justify-between gap-3">
-                <span className="truncate">{i.name}</span>
-                <Pill tone="muted">Milestone {i.milestone}</Pill>
-              </li>
-            ))}
-          </ul>
-        </Card>
+        <IntegrationsCard />
         <ComponentsCard />
       </div>
     </div>
@@ -316,6 +305,42 @@ function RecentEvents() {
           ))}
         </ul>
       )}
+    </Card>
+  );
+}
+
+function IntegrationsCard() {
+  const { ai } = useBackend();
+  const claude = !ai
+    ? { tone: "muted" as const, text: "unknown" }
+    : ai.anthropic.configured
+      ? ai.anthropic.last_test && !ai.anthropic.last_test.ok
+        ? { tone: "bad" as const, text: `error: ${ai.anthropic.last_test.error_code}` }
+        : { tone: "ok" as const, text: ai.anthropic.settings.model }
+      : ai.claude_code.settings.enabled
+        ? { tone: "ok" as const, text: "Claude Code" }
+        : { tone: "warn" as const, text: "not configured" };
+  return (
+    <Card title="Integrations">
+      <ul className="space-y-2 text-sm" aria-label="Integrations">
+        <li className="flex items-center justify-between gap-3">
+          <span className="truncate">Claude</span>
+          <Pill tone={claude.tone}>{claude.text}</Pill>
+        </li>
+        <li className="flex items-center justify-between gap-3">
+          <span className="truncate">API spend this month</span>
+          <span className="tabular-nums" data-testid="home-api-spend">
+            {ai ? usd(ai.month.api.cost_usd) : "—"}
+            {ai?.month.monthly_limit_usd ? <span className="text-xs text-[var(--muted)]"> / {usd(ai.month.monthly_limit_usd)}</span> : null}
+          </span>
+        </li>
+        {LATER_INTEGRATIONS.map((i) => (
+          <li key={i.name} className="flex items-center justify-between gap-3">
+            <span className="truncate">{i.name}</span>
+            <Pill tone="muted">Milestone {i.milestone}</Pill>
+          </li>
+        ))}
+      </ul>
     </Card>
   );
 }

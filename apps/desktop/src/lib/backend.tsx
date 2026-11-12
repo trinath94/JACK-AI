@@ -1,4 +1,5 @@
 import type {
+  AIStatus,
   BackendConnection,
   BackendStatus,
   ComponentHealth,
@@ -98,6 +99,8 @@ export interface BackendContextValue {
   wokeAt: number | null;
   models: SpeechModel[];
   refreshModels(): Promise<void>;
+  ai: AIStatus | null;
+  refreshAI(): Promise<void>;
   voiceError: string | null;
   notifications: Notification[];
   unread: number;
@@ -138,6 +141,7 @@ export function BackendProvider({
   const [lastReply, setLastReply] = useState<string | null>(null);
   const [wokeAt, setWokeAt] = useState<number | null>(null);
   const [models, setModels] = useState<SpeechModel[]>([]);
+  const [ai, setAI] = useState<AIStatus | null>(null);
   const [voiceError, setVoiceError] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unread, setUnread] = useState(0);
@@ -194,6 +198,11 @@ export function BackendProvider({
     setModels(await api.speechModels());
   }, [api]);
 
+  const refreshAI = useCallback(async () => {
+    if (!api) return;
+    setAI(await api.aiStatus());
+  }, [api]);
+
   const refreshNotifications = useCallback(async () => {
     if (!api) return;
     const list = await api.notifications(false, 50);
@@ -212,6 +221,7 @@ export function BackendProvider({
     void refreshVoice().catch(() => {});
     void refreshNotifications().catch(() => {});
     void refreshModels().catch(() => {});
+    void refreshAI().catch(() => {});
     void api.metrics().then(setMetrics).catch(() => {});
     const onEvent = (e: WsEvent) => {
       switch (e.topic) {
@@ -269,12 +279,17 @@ export function BackendProvider({
         case "system.metrics":
           setMetrics(e.data);
           break;
+        case "ai.status":
+        case "ai.usage":
+          void refreshAI().catch(() => {});
+          setActivity((n) => n + 1);
+          break;
       }
     };
     const s = new JackSocket(conn, { onEvent, onState: setSocket, WebSocketImpl });
     s.start();
     return () => s.stop();
-  }, [conn, api, refreshTasks, refreshVoice, refreshNotifications, refreshModels, WebSocketImpl]);
+  }, [conn, api, refreshTasks, refreshVoice, refreshNotifications, refreshModels, refreshAI, WebSocketImpl]);
 
   // Keep the tray tooltip / mute checkbox in step with the service.
   const voiceStateKey = voice ? `${voice.settings.muted}|${voice.state}` : null;
@@ -310,6 +325,8 @@ export function BackendProvider({
     wokeAt,
     models,
     refreshModels,
+    ai,
+    refreshAI,
     voiceError,
     notifications,
     unread,
