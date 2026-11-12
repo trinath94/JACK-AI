@@ -1,6 +1,6 @@
 import type { AICompletion, AIEffort, AIModel, AIProviderId, AISettingsPatch, UsageRecordRow } from "@jack/shared-types";
 import { CheckCircle2, KeyRound, Lock, RefreshCw, Send, ShieldAlert, Trash2, XCircle } from "lucide-react";
-import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { Card, Meter, Pill, formatTime, usd } from "../components/ui";
 import { ApiRequestError } from "../lib/api";
 import { useBackend } from "../lib/backend";
@@ -168,7 +168,17 @@ function AnthropicSection({ run, patch }: { run: (fn: () => Promise<unknown>) =>
   const [key, setKey] = useState("");
   const [models, setModels] = useState<AIModel[] | null>(null);
   const [testing, setTesting] = useState(false);
+  const [focusTest, setFocusTest] = useState(false);
+  const testRef = useRef<HTMLButtonElement>(null);
   const a = ai!.anthropic;
+
+  // Once a newly saved key is active, the natural next step is testing it: move focus there.
+  useEffect(() => {
+    if (focusTest && a.configured) {
+      testRef.current?.focus();
+      setFocusTest(false);
+    }
+  }, [focusTest, a.configured]);
 
   useEffect(() => {
     if (!api || !a.configured) return setModels(null);
@@ -180,6 +190,7 @@ function AnthropicSection({ run, patch }: { run: (fn: () => Promise<unknown>) =>
     if (!key.trim()) return;
     await run(() => api!.setAnthropicKey(key.trim()));
     setKey("");
+    setFocusTest(true);
   }
 
   const modelOptions: [string, string][] = (models ?? FALLBACK_MODELS.map((id) => ({ id, display_name: id, price_known: true }) as AIModel)).map((mm) => [
@@ -220,7 +231,7 @@ function AnthropicSection({ run, patch }: { run: (fn: () => Promise<unknown>) =>
       <Toggle label="If the model declines a request, retry on another Claude model" checked={a.settings.refusal_fallback} onChange={(v) => void patch({ anthropic: { refusal_fallback: v } })}
         hint="Uses the API's built-in fallback (same provider). The model that answered and its price are recorded." />
       <div className="flex flex-wrap items-center gap-3">
-        <button type="button" disabled={!a.configured || testing} onClick={() => { setTesting(true); void run(() => api!.testProvider("anthropic")).finally(() => setTesting(false)); }}
+        <button ref={testRef} type="button" disabled={!a.configured || testing} onClick={() => { setTesting(true); void run(() => api!.testProvider("anthropic")).finally(() => setTesting(false)); }}
           className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs font-medium hover:bg-[var(--hover)] disabled:opacity-50">
           <RefreshCw className={`h-3.5 w-3.5 ${testing ? "animate-spin" : ""}`} aria-hidden /> Test connection
         </button>

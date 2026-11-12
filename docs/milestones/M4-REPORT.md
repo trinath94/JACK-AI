@@ -93,6 +93,7 @@ The first successful real call will be yours: Usage and Billing → paste a key 
 | 2 | One-request costs displayed as `$0.0001` instead of `$0.000148` | e2e screenshot | Up to 6 decimal places below one cent; formatter tests |
 | 3 | "1 requests" | e2e screenshot | Pluralisation |
 | 4 | `keyring` finds Windows Credential Manager through package metadata, which PyInstaller drops | Packaging review | `--copy-metadata keyring` plus backend submodules; the Windows CI smoke step checks the frozen service reports a secure Windows store |
+| 5 | The e2e clicked "Test connection" by screen position, which missed on GitHub's runner (different layout); the test was never pressed | First CI run of this branch (e2e 22/25) | Saving a key now moves keyboard focus to **Test connection** (also better for keyboard users; UI test asserts it) and the e2e presses Space instead of clicking a coordinate |
 
 ## 5. Feature status
 

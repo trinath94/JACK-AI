@@ -331,6 +331,7 @@ describe("Usage and Billing (M4)", () => {
     await waitFor(() => expect(service.state.calls.some((c) => c.method === "PUT" && c.path === "/v1/ai/anthropic/key")).toBe(true));
     act(() => ws.emit("ai.status", { changed: "anthropic.key" }));
     expect(await screen.findByTestId("key-hint")).toHaveTextContent("sk-ant-…9z9z");
+    await waitFor(() => expect(screen.getByRole("button", { name: /Test connection/ })).toHaveFocus());
     expect(document.body.textContent).not.toContain("SECRETSECRETSECRET");
     expect(await screen.findByRole("option", { name: "Claude Future 9 (no price data)" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Test connection/ }));

@@ -121,7 +121,7 @@ if [[ "${AI_E2E:-0}" == 1 && -n "$WIN" ]]; then
   xdotool windowactivate --sync "$WIN" 2>/dev/null || true
   xdotool key ctrl+5; sleep 2
   import -window root "$OUT/08-usage-before.png"
-  # Window-relative positions of the key field and Test connection (calibrated on 08/09 shots).
+  # Window-relative position of the key field (calibrated on the 08 shot).
   xdotool mousemove --window "$WIN" "${AI_KEY_X:-487}" "${AI_KEY_Y:-572}" click 1
   xdotool type --delay 5 "$AI_KEY"
   xdotool key Return
@@ -129,7 +129,8 @@ if [[ "${AI_E2E:-0}" == 1 && -n "$WIN" ]]; then
     && ok "API key saved from the UI (audited as credential.set)" || bad "API key not saved"
   sleep 2
   import -window root "$OUT/08b-key-saved.png"
-  xdotool mousemove --window "$WIN" "${AI_TEST_X:-361}" "${AI_TEST_Y:-823}" click 1
+  # Saving a key moves keyboard focus to "Test connection" (no layout-dependent click).
+  xdotool key space
   wait_until 30 q_ge "select count(*) from usage_records where purpose='connection_test' and succeeded=1" 1 \
     && ok "Test connection reached the (fake) Anthropic API and was recorded" || bad "connection test not recorded"
   COST=$(q "select cost_usd from usage_records where purpose='connection_test' and succeeded=1 limit 1")
