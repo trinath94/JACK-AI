@@ -26,10 +26,22 @@ The desktop app sets these for you. They only matter when running the service by
 | `JACK_LOG_LEVEL` | `INFO` | |
 | `JACK_WS_AUTH_TIMEOUT_S` | `5` | Seconds a WebSocket has to send its auth frame |
 | `JACK_HEALTH_INTERVAL_S` | `10` | Background health check period |
+| `JACK_METRICS_INTERVAL_S` | `3` | System metrics push period (only while the UI is connected) |
+| `JACK_SUPERVISOR_PID` | set by the app | The service exits if this process disappears (POSIX) |
 
 ## In-app settings
 
-Settings → Appearance: theme (system, dark or light), accent colour, compact sidebar. These are
-stored per user in the WebView's local storage.
+| Where | Setting | Stored in |
+|---|---|---|
+| Settings → Appearance | Theme, accent colour, compact sidebar | WebView local storage (per user) |
+| Settings → Startup | Start with Windows. Adds a per-user `Run` registry entry with `--autostart`, so JACK starts hidden in the tray | Windows registry (HKCU) |
+| Voice Assistant | Microphone, mute, privacy mode, maximum listening time (5–120 s), wake-word preference and sensitivity | Service database, `settings` table, key `voice` |
+| Tray | Mute microphone | Same as above |
 
-AI provider, voice, GitHub and server settings will be added in later milestones (see `docs/ROADMAP.md`).
+The push-to-talk hotkey is fixed to **Ctrl+Shift+Space** in this version.
+
+Microphones are stored by host API and name (for example `Windows WASAPI:Headset Microphone`),
+not by index, so the selection survives reboots. If the selected microphone is unplugged, push-to-talk
+reports it instead of silently using another device. Choose **System default** to follow Windows.
+
+AI provider, GitHub and server settings will be added in later milestones (see `docs/ROADMAP.md`).

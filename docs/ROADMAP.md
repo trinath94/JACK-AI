@@ -6,8 +6,8 @@ branch, and a report in `docs/milestones/`.
 
 | # | Milestone | Depends on | Exit criteria (evidence required) | Status |
 |---|---|---|---|---|
-| 1 | Foundation: Tauri 2, React, Rust, FastAPI | – | Authenticated loopback service supervised by Rust; health + WS live in UI; task/audit persistence; CI on Linux + Windows build job | **In progress** |
-| 2 | Dashboard & voice interface | 1 | All 16 nav sections routed; orb with listening/processing/speaking states; light/dark/accent; tray; shortcuts | Not started |
+| 1 | Foundation: Tauri 2, React, Rust, FastAPI | – | Authenticated loopback service supervised by Rust; health + WS live in UI; task/audit persistence; CI on Linux + Windows build job | **Done** ([report](milestones/M1-REPORT.md)) |
+| 2 | Dashboard & voice interface | 1 | Section 21 dashboard; voice settings, mic selection, mute/privacy enforced server-side; push-to-talk (UI + global hotkey) with real capture and live level; notification centre; system metrics; tray mute; start with Windows; shortcuts | **Done** ([report](milestones/M2-REPORT.md)) |
 | 3 | Wake word & speech | 2 | openWakeWord "jack"/"hey jack" model trained + FA/MD evaluation report; VAD; Whisper (faster-whisper) ASR; Windows SAPI TTS; push-to-talk; privacy mode | Not started |
 | 4 | Claude provider abstraction | 1 | Anthropic API provider + Claude Code provider; Credential Manager storage; usage/cost tracking; spend limits; connection test | Not started |
 | 5 | Requirement discovery | 4 | Category classifier for 19 categories; one-question-at-a-time loop; structured spec; approval for large projects | Not started |

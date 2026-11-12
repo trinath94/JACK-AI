@@ -36,7 +36,7 @@ export interface NavItem {
 // Section 21 navigation, in order. `milestone` drives honest "planned" states in the UI.
 export const NAV: NavItem[] = [
   { id: "home", label: "Home", icon: Home, milestone: null, summary: "Service health, command entry and live task feed.", shortcut: "1" },
-  { id: "voice", label: "Voice Assistant", icon: Mic, milestone: 3, summary: "Wake word \"Jack\", push-to-talk, speech recognition and spoken replies." },
+  { id: "voice", label: "Voice Assistant", icon: Mic, milestone: null, summary: "Microphone, push-to-talk, mute and privacy. Wake word and speech recognition arrive in Milestone 3.", shortcut: "4" },
   { id: "command", label: "Command Centre", icon: TerminalSquare, milestone: 5, summary: "Requirement discovery: JACK asks one question at a time and builds a specification." },
   { id: "tasks", label: "Active Tasks", icon: Activity, milestone: null, summary: "Durable tasks with lifecycle history; pause, resume and cancel.", shortcut: "2" },
   { id: "projects", label: "Projects", icon: FolderKanban, milestone: 8, summary: "Project records, workspaces and history." },

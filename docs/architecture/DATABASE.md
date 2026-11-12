@@ -39,7 +39,7 @@ migration of the milestone noted.
 | `workflow_runs` | id, task_id, temporal_workflow_id, run_id, status, started_at, ended_at | M6 |
 | `task_steps` | id, task_id, workflow_run_id, name, agent_id?, status, idempotent bool, attempt, input JSON, output JSON, started_at, ended_at | M6 |
 | `approvals` | id, task_id, action, target, scope JSON, risk_class, requested_by, status(pending/approved/denied/expired), decided_by_user_id?, decided_at?, expires_at, nonce | M6 |
-| `notifications` | id, kind, title, body, task_id?, read_at? | M6 |
+| `notifications` | id, level, kind, title, body, task_id?, created_at, read_at? | **M2** (migration 0002) |
 | `agents` | id, key, name, version, allowed_tools JSON, limits JSON | M7 |
 | `agent_executions` | id, agent_id, task_step_id, input JSON, output JSON, verdict(accepted/rejected), tokens, cost_usd | M7 |
 | `tool_executions` | id, agent_execution_id?, tool, risk_class, args_redacted JSON, policy_decision, approval_id?, exit_code, started_at, ended_at | M7 |

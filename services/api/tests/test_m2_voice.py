@@ -196,3 +196,27 @@ def test_level_mapping() -> None:
     assert level_from_int16(array("h", [32767, -32767] * 50)) == pytest.approx(1.0, abs=0.01)
     quiet = level_from_int16(array("h", [33, -33] * 50))  # ~ -60 dBFS
     assert quiet < 0.05
+
+
+def test_microphone_delivering_no_audio_is_reported(client: TestClient, audio: FakeAudio) -> None:
+    engine = client.app.state.svc.voice  # type: ignore[attr-defined]
+    engine.no_audio_timeout_s = 0.2
+    client.post("/v1/voice/ptt/start", json={})  # fake backend never emits a level
+    deadline = time.monotonic() + 3
+    while engine.state.value == "listening" and time.monotonic() < deadline:
+        time.sleep(0.05)
+    assert engine.state.value == "idle"
+    assert engine.last_result.stopped_by == "no_audio"
+    assert audio.streams[0].closed
+    titles = [n["title"] for n in client.get("/v1/notifications").json()["items"]]
+    assert "No audio from microphone" in titles
+
+
+def test_watchdog_quiet_when_audio_flows(client: TestClient, audio: FakeAudio) -> None:
+    engine = client.app.state.svc.voice  # type: ignore[attr-defined]
+    engine.no_audio_timeout_s = 0.2
+    client.post("/v1/voice/ptt/start", json={})
+    audio.emit(0.3)
+    time.sleep(0.4)
+    assert engine.state.value == "listening"
+    client.post("/v1/voice/ptt/stop")

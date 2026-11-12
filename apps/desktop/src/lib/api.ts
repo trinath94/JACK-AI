@@ -2,12 +2,19 @@ import type {
   ApiError,
   AuditEvent,
   BackendConnection,
+  AudioDevice,
   HealthReport,
+  NotificationList,
+  PttResult,
   SystemInfo,
+  SystemMetrics,
   Task,
   TaskDetail,
   TaskList,
   TaskStatus,
+  VoiceSettings,
+  VoiceSettingsPatch,
+  VoiceStatus,
 } from "@jack/shared-types";
 
 export class ApiRequestError extends Error {
@@ -37,6 +44,7 @@ export class JackApi {
       },
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
+    if (res.status === 204) return undefined as T;
     if (!res.ok) {
       let code = "http_error";
       let message = `HTTP ${res.status}`;
@@ -81,6 +89,36 @@ export class JackApi {
       "GET",
       `/v1/audit?limit=${limit}&offset=${offset}`,
     );
+  }
+  voiceStatus() {
+    return this.request<VoiceStatus>("GET", "/v1/voice/status");
+  }
+  voiceDevices() {
+    return this.request<AudioDevice[]>("GET", "/v1/voice/devices");
+  }
+  updateVoiceSettings(patch: VoiceSettingsPatch) {
+    return this.request<VoiceSettings>("PATCH", "/v1/voice/settings", patch);
+  }
+  pttStart(source: "ui" | "hotkey" | "tray" = "ui") {
+    return this.request<VoiceStatus>("POST", "/v1/voice/ptt/start", { source });
+  }
+  pttStop() {
+    return this.request<PttResult | null>("POST", "/v1/voice/ptt/stop");
+  }
+  notifications(unreadOnly = false, limit = 50) {
+    return this.request<NotificationList>(
+      "GET",
+      `/v1/notifications?unread_only=${unreadOnly}&limit=${limit}`,
+    );
+  }
+  markNotificationRead(id: string) {
+    return this.request<void>("POST", `/v1/notifications/${encodeURIComponent(id)}/read`);
+  }
+  markAllNotificationsRead() {
+    return this.request<{ marked: number }>("POST", "/v1/notifications/read-all");
+  }
+  metrics() {
+    return this.request<SystemMetrics>("GET", "/v1/system/metrics");
   }
   verifyAudit() {
     return this.request<{ valid: boolean; checked: number; first_invalid_seq: number | null }>(

@@ -152,11 +152,14 @@ def create_app(settings: Settings, audio_backend: AudioBackend | None = None) ->
         hub.loop = asyncio.get_running_loop()
         store = SettingsStore(db)
         backend = audio_backend if audio_backend is not None else SoundDeviceBackend()
-        voice = VoiceEngine(backend, store, audit, hub.publish_threadsafe)
+        notifications = NotificationCentre(db, hub.publish_threadsafe)
+        voice = VoiceEngine(
+            backend, store, audit, hub.publish_threadsafe,
+            notify=lambda kind, title, body: notifications.create(kind, title, body,
+                                                                  level="warning"))
         health.register("voice", _voice_probe(voice))
         svc = Services(settings, db, audit, TaskStore(db, audit), health, hub, time.monotonic(),
-                       store, NotificationCentre(db, hub.publish_threadsafe), voice,
-                       SystemMetrics(settings.data_dir))
+                       store, notifications, voice, SystemMetrics(settings.data_dir))
         holder["svc"] = svc
         app.state.svc = svc
         await asyncio.to_thread(audit.record, "service.start", outcome="info",

@@ -3,7 +3,11 @@ import type {
   BackendStatus,
   ComponentHealth,
   HealthStatus,
+  Notification,
+  PttResult,
+  SystemMetrics,
   Task,
+  VoiceStatus,
   WsEvent,
 } from "@jack/shared-types";
 import {
@@ -16,7 +20,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { JackApi } from "./api";
+import { ApiRequestError, JackApi } from "./api";
 import { JackSocket, type SocketState } from "./socket";
 
 /** Seam between the UI and Tauri so components can be tested without a native host. */
@@ -26,7 +30,22 @@ export interface DesktopBridge {
   getStatus(): Promise<BackendStatus>;
   restart(): Promise<void>;
   onStatus(cb: (s: BackendStatus) => void): Promise<() => void>;
+  /** Errors raised by the native push-to-talk hotkey / tray (they bypass the UI). */
+  onVoiceError(cb: (message: string) => void): Promise<() => void>;
+  syncTray(muted: boolean, voiceState: string): Promise<void>;
+  pttShortcut(): Promise<string | null>;
+  autostart: {
+    supported: boolean;
+    isEnabled(): Promise<boolean>;
+    set(enabled: boolean): Promise<void>;
+  };
 }
+
+const NO_AUTOSTART: DesktopBridge["autostart"] = {
+  supported: false,
+  isEnabled: async () => false,
+  set: async () => {},
+};
 
 export async function tauriBridge(): Promise<DesktopBridge> {
   const { invoke, isTauri } = await import("@tauri-apps/api/core");
@@ -38,24 +57,53 @@ export async function tauriBridge(): Promise<DesktopBridge> {
       getStatus: async () => ({ state: "stopped", restarts: 0, lastError: "Not running in the desktop app", pid: null }),
       restart: async () => {},
       onStatus: async () => () => {},
+      onVoiceError: async () => () => {},
+      syncTray: async () => {},
+      pttShortcut: async () => null,
+      autostart: NO_AUTOSTART,
     };
   }
+  const autostart = await import("@tauri-apps/plugin-autostart");
   return {
     isNative: true,
     getConnection: () => invoke<BackendConnection>("backend_connection"),
     getStatus: () => invoke<BackendStatus>("backend_status"),
     restart: () => invoke<void>("restart_backend"),
     onStatus: (cb) => listen<BackendStatus>("backend://status", (e) => cb(e.payload)),
+    onVoiceError: (cb) => listen<string>("voice://error", (e) => cb(e.payload)),
+    syncTray: (muted, voiceState) => invoke<void>("sync_tray", { muted, voiceState }),
+    pttShortcut: () => invoke<string>("ptt_shortcut"),
+    autostart: {
+      supported: true,
+      isEnabled: () => autostart.isEnabled(),
+      set: (on) => (on ? autostart.enable() : autostart.disable()),
+    },
   };
 }
 
 export interface BackendContextValue {
+  bridge: DesktopBridge;
   supervisor: BackendStatus;
   socket: SocketState;
   api: JackApi | null;
   health: { status: HealthStatus; components: ComponentHealth[] } | null;
   tasks: Task[];
+  voice: VoiceStatus | null;
+  voiceLevel: number;
+  lastUtterance: PttResult | null;
+  voiceError: string | null;
+  notifications: Notification[];
+  unread: number;
+  metrics: SystemMetrics | null;
+  /** Monotonic counter bumped on events that change the audit log, for cheap refreshes. */
+  activity: number;
   refreshTasks(): Promise<void>;
+  refreshVoice(): Promise<void>;
+  startPtt(): Promise<void>;
+  stopPtt(): Promise<void>;
+  markRead(id: string): Promise<void>;
+  markAllRead(): Promise<void>;
+  clearVoiceError(): void;
   restart(): Promise<void>;
 }
 
@@ -77,11 +125,20 @@ export function BackendProvider({
   const [socket, setSocket] = useState<SocketState>("closed");
   const [health, setHealth] = useState<BackendContextValue["health"]>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [voice, setVoice] = useState<VoiceStatus | null>(null);
+  const [voiceLevel, setVoiceLevel] = useState(0);
+  const [lastUtterance, setLastUtterance] = useState<PttResult | null>(null);
+  const [voiceError, setVoiceError] = useState<string | null>(null);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unread, setUnread] = useState(0);
+  const [metrics, setMetrics] = useState<SystemMetrics | null>(null);
+  const [activity, setActivity] = useState(0);
   const connKey = useRef<string | null>(null);
 
   // Track supervisor state; fetch a new connection whenever the service (re)starts.
   useEffect(() => {
     let unlisten: (() => void) | undefined;
+    let unlistenVoice: (() => void) | undefined;
     let cancelled = false;
     const sync = async (s: BackendStatus) => {
       setSupervisor(s);
@@ -100,10 +157,12 @@ export function BackendProvider({
       }
     };
     void bridge.onStatus((s) => void sync(s)).then((u) => (unlisten = u));
+    void bridge.onVoiceError((m) => setVoiceError(m)).then((u) => (unlistenVoice = u));
     void bridge.getStatus().then(sync);
     return () => {
       cancelled = true;
       unlisten?.();
+      unlistenVoice?.();
     };
   }, [bridge]);
 
@@ -115,30 +174,125 @@ export function BackendProvider({
     setTasks(list.items);
   }, [api]);
 
+  const refreshVoice = useCallback(async () => {
+    if (!api) return;
+    setVoice(await api.voiceStatus());
+  }, [api]);
+
+  const refreshNotifications = useCallback(async () => {
+    if (!api) return;
+    const list = await api.notifications(false, 50);
+    setNotifications(list.items);
+    setUnread(list.unread);
+  }, [api]);
+
   useEffect(() => {
-    if (!conn) {
+    if (!conn || !api) {
       setHealth(null);
+      setVoice(null);
+      setMetrics(null);
       return;
     }
     void refreshTasks().catch(() => {});
+    void refreshVoice().catch(() => {});
+    void refreshNotifications().catch(() => {});
+    void api.metrics().then(setMetrics).catch(() => {});
     const onEvent = (e: WsEvent) => {
-      if (e.topic === "health.changed") setHealth(e.data);
-      if (e.topic === "task.created" || e.topic === "task.updated") {
-        setTasks((prev) => [e.data, ...prev.filter((t) => t.id !== e.data.id)].slice(0, 50));
+      switch (e.topic) {
+        case "health.changed":
+          setHealth(e.data);
+          break;
+        case "task.created":
+        case "task.updated":
+          setTasks((prev) => [e.data, ...prev.filter((t) => t.id !== e.data.id)].slice(0, 50));
+          setActivity((n) => n + 1);
+          break;
+        case "voice.state":
+          setVoice((v) => (v ? { ...v, state: e.data.state } : v));
+          if (e.data.state !== "listening") setVoiceLevel(0);
+          setActivity((n) => n + 1);
+          break;
+        case "voice.level":
+          setVoiceLevel(e.data.level);
+          break;
+        case "voice.settings":
+          setVoice((v) => (v ? { ...v, settings: e.data } : v));
+          break;
+        case "voice.utterance":
+          setLastUtterance(e.data);
+          break;
+        case "voice.error":
+          setVoiceError(e.data.message);
+          break;
+        case "notification.created":
+          setNotifications((prev) => [e.data, ...prev].slice(0, 50));
+          setUnread((n) => n + 1);
+          break;
+        case "notification.read": {
+          const ids = new Set(e.data.ids);
+          setNotifications((prev) =>
+            prev.map((n) => (ids.has(n.id) && !n.read_at ? { ...n, read_at: e.ts } : n)),
+          );
+          // The server owns the unread count; refetch rather than guess.
+          void refreshNotifications().catch(() => {});
+          break;
+        }
+        case "system.metrics":
+          setMetrics(e.data);
+          break;
       }
     };
     const s = new JackSocket(conn, { onEvent, onState: setSocket, WebSocketImpl });
     s.start();
     return () => s.stop();
-  }, [conn, refreshTasks, WebSocketImpl]);
+  }, [conn, api, refreshTasks, refreshVoice, refreshNotifications, WebSocketImpl]);
+
+  // Keep the tray tooltip / mute checkbox in step with the service.
+  const voiceStateKey = voice ? `${voice.settings.muted}|${voice.state}` : null;
+  useEffect(() => {
+    if (!voice) return;
+    void bridge.syncTray(voice.settings.muted, voice.state).catch(() => {});
+  }, [bridge, voiceStateKey]);
+
+  const runVoice = useCallback(
+    async (fn: (a: JackApi) => Promise<unknown>) => {
+      if (!api) return;
+      try {
+        setVoiceError(null);
+        await fn(api);
+      } catch (err) {
+        setVoiceError(err instanceof ApiRequestError ? err.message : "Voice action failed");
+      }
+    },
+    [api],
+  );
 
   const value: BackendContextValue = {
+    bridge,
     supervisor,
     socket,
     api,
     health,
     tasks,
+    voice,
+    voiceLevel,
+    lastUtterance,
+    voiceError,
+    notifications,
+    unread,
+    metrics,
+    activity,
     refreshTasks,
+    refreshVoice,
+    startPtt: () => runVoice((a) => a.pttStart("ui")),
+    stopPtt: () => runVoice((a) => a.pttStop()),
+    markRead: async (id) => {
+      await api?.markNotificationRead(id);
+    },
+    markAllRead: async () => {
+      await api?.markAllNotificationsRead();
+    },
+    clearVoiceError: () => setVoiceError(null),
     restart: () => bridge.restart(),
   };
   return <BackendContext.Provider value={value}>{children}</BackendContext.Provider>;

@@ -1,0 +1,16 @@
+PASS  supervisor started bundled sidecar (pid 16312)
+PASS  service started and migrated the database
+PASS  main window shown
+PASS  typed command persisted as task (RECEIVED)
+PASS  global hotkey Ctrl+Shift+Space opened the microphone (source=hotkey)
+PASS  releasing the hotkey closed the microphone after 3205 ms
+PASS  real audio levels arrived from the virtual microphone (no-audio watchdog silent)
+PASS  service restarted after SIGKILL (old 16312, new 16533)
+PASS  audit records 2 service starts
+PASS  old service tree exited (no orphan after crash)
+PASS  app still running after window close (tray)
+PASS  no service processes after SIGTERM quit
+PASS  service shut itself down after the app was SIGKILLed
+PASS  audit chain links intact (linked 9 events)
+----
+passed=14 failed=0

@@ -4,16 +4,18 @@
 # Proves, against the real binaries:
 #   1. the app launches and the supervisor starts the bundled sidecar
 #   2. the service migrates its database and the main window renders live status
-#   3. a command typed into the UI becomes a durable task          (needs CMD_X/CMD_Y)
+#   3. a command typed into the UI (focused with Ctrl+K) becomes a durable task
 #   4. the service is restarted after being SIGKILLed, with a fresh audit record
 #   5. closing the window keeps JACK running (tray)
 #   6. quitting gracefully (SIGTERM) leaves no service processes
 #   7. even if the app is SIGKILLed, the service shuts itself down (lifeline)
 #   8. the audit hash chain is intact afterwards
+#   9. (VOICE_E2E=1) holding the global hotkey Ctrl+Shift+Space captures real audio from a
+#      virtual PulseAudio microphone playing a tone, and releasing it closes the microphone
 #
-# Usage: CMD_X=550 CMD_Y=468 tests/e2e/linux_smoke.sh <jack-ai binary> <output dir>
-# CMD_X/CMD_Y: window-relative position of the Home command box (see 01-home.png).
-# Requires: Xvfb, openbox, wmctrl, xdotool, imagemagick (import), dbus, python3.
+# Usage: [VOICE_E2E=1] tests/e2e/linux_smoke.sh <jack-ai binary> <output dir>
+# Requires: Xvfb, openbox, wmctrl, xdotool, imagemagick (import), dbus, python3;
+#           for VOICE_E2E=1 also pulseaudio, pulseaudio-utils, libasound2-plugins, sox.
 set -uo pipefail
 
 APP="$(realpath "$1")"
@@ -37,6 +39,19 @@ start_app() { "$APP" >> "$OUT/app.log" 2>&1 & APP_PID=$!; }
 
 if [[ -n "$(all_service_pids)" ]]; then echo "stale jack-service processes running; aborting"; exit 2; fi
 
+if [[ "${VOICE_E2E:-0}" == 1 ]]; then
+  # Virtual microphone: a null sink whose monitor is remapped as a capture source, routed to
+  # ALSA's default device so PortAudio (inside the frozen service) uses it like a real mic.
+  pactl info >/dev/null 2>&1 || pulseaudio -D --exit-idle-time=-1 2>/dev/null
+  wait_until 10 bash -c "pactl info >/dev/null 2>&1"
+  pactl list short sinks | grep -q jackvirt || pactl load-module module-null-sink sink_name=jackvirt >/dev/null
+  pactl list short sources | grep -q jackmic || pactl load-module module-remap-source master=jackvirt.monitor source_name=jackmic >/dev/null
+  pactl set-default-source jackmic
+  export PULSE_SERVER="$(pactl info | sed -n 's/^Server String: //p')"
+  export HOME="$OUT/home"; mkdir -p "$HOME"
+  printf 'pcm.!default { type pulse }\nctl.!default { type pulse }\n' > "$HOME/.asoundrc"
+fi
+
 Xvfb "$DISPLAY" -screen 0 1440x900x24 >/dev/null 2>&1 & XVFB=$!
 sleep 1
 eval "$(dbus-launch --sh-syntax)"
@@ -56,10 +71,11 @@ wait_until 30 bash -c 'xdotool search --name "^JACK AI$" >/dev/null' && WIN=$(xd
 sleep 6   # WebView connects its WebSocket and renders
 import -window root "$OUT/01-home.png"
 
-# 3: typed command -> durable task
-if [[ -n "${CMD_Y:-}" && -n "$WIN" ]]; then
+# 3: typed command -> durable task (Ctrl+K focuses the command box)
+if [[ -n "$WIN" ]]; then
   xdotool windowactivate --sync "$WIN" 2>/dev/null || true
-  xdotool mousemove --window "$WIN" "$CMD_X" "$CMD_Y" click 1
+  xdotool key ctrl+k
+  sleep 0.5
   xdotool type --delay 20 "Jack, build a professional corporate website"
   xdotool key Return
   wait_until 15 q_ge "select count(*) from tasks where command_text like '%corporate website%'" 1 \
@@ -67,8 +83,32 @@ if [[ -n "${CMD_Y:-}" && -n "$WIN" ]]; then
     || bad "typed command not persisted"
   sleep 1.5
   import -window root "$OUT/02-task-created.png"
-else
-  echo "SKIP  typed command (set CMD_X/CMD_Y)"
+fi
+
+# 9: global hotkey push-to-talk with real audio capture
+if [[ "${VOICE_E2E:-0}" == 1 && -n "$WIN" ]]; then
+  sox -n -t wav - synth 8 sine 440 vol 0.5 2>/dev/null | paplay -d jackvirt & TONE=$!
+  sleep 0.5
+  xdotool keydown ctrl+shift+space
+  sleep 1.5
+  import -window root "$OUT/04-listening.png"
+  sleep 1.5
+  xdotool keyup ctrl+shift+space
+  kill $TONE 2>/dev/null || true
+  wait_until 10 q_ge "select count(*) from audit_events where action='voice.capture.stop'" 1 || true
+  SRC=$(q "select json_extract(details,'$.source') from audit_events where action='voice.capture.start' order by seq desc limit 1")
+  [[ "$SRC" == hotkey ]] && ok "global hotkey Ctrl+Shift+Space opened the microphone (source=$SRC)" || bad "hotkey capture not started (source=$SRC)"
+  MS=$(q "select json_extract(details,'$.captured_ms') from audit_events where action='voice.capture.stop' order by seq desc limit 1")
+  BY=$(q "select json_extract(details,'$.stopped_by') from audit_events where action='voice.capture.stop' order by seq desc limit 1")
+  [[ "$BY" == released && "${MS:-0}" -ge 2500 ]] && ok "releasing the hotkey closed the microphone after ${MS} ms" || bad "capture stop: by=$BY ms=$MS"
+  NOAUDIO=$(q "select count(*) from notifications where kind='voice.no_audio'")
+  [[ "$NOAUDIO" == 0 ]] && ok "real audio levels arrived from the virtual microphone (no-audio watchdog silent)" || bad "no audio reached the service"
+  sleep 1
+  import -window root "$OUT/05-after-capture.png"
+  xdotool windowactivate --sync "$WIN" 2>/dev/null || true
+  xdotool key ctrl+4; sleep 2
+  import -window root "$OUT/06-voice-page.png"
+  xdotool key ctrl+1; sleep 1
 fi
 
 # 4: crash recovery

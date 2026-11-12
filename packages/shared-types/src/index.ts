@@ -17,6 +17,16 @@ export type TaskList = Schemas["TaskList"];
 export type TaskStatus = Schemas["TaskStatus"];
 export type TaskCreate = Schemas["TaskCreate"];
 export type AuditEvent = Schemas["AuditEventOut"];
+export type VoiceStatus = Schemas["VoiceStatus"];
+export type VoiceState = VoiceStatus["state"];
+export type VoiceSettings = Schemas["VoiceSettings"];
+export type VoiceSettingsPatch = Schemas["VoiceSettingsPatch"];
+export type VoiceCapabilities = Schemas["VoiceCapabilities"];
+export type AudioDevice = Schemas["AudioDeviceOut"];
+export type PttResult = Schemas["PttResultOut"];
+export type Notification = Schemas["NotificationOut"];
+export type NotificationList = Schemas["NotificationList"];
+export type SystemMetrics = Schemas["SystemMetricsOut"];
 
 export interface ApiError {
   error: { code: string; message: string; request_id: string | null };
@@ -28,7 +38,15 @@ export type WsEvent =
   | { type: "event"; topic: "pong"; ts: string; data: Record<string, never> }
   | { type: "event"; topic: "health.changed"; ts: string;
       data: { status: HealthStatus; components: ComponentHealth[] } }
-  | { type: "event"; topic: "task.created" | "task.updated"; ts: string; data: Task };
+  | { type: "event"; topic: "task.created" | "task.updated"; ts: string; data: Task }
+  | { type: "event"; topic: "voice.state"; ts: string; data: { state: VoiceState } }
+  | { type: "event"; topic: "voice.level"; ts: string; data: { level: number } }
+  | { type: "event"; topic: "voice.settings"; ts: string; data: VoiceSettings }
+  | { type: "event"; topic: "voice.utterance"; ts: string; data: PttResult }
+  | { type: "event"; topic: "voice.error"; ts: string; data: { code: string; message: string } }
+  | { type: "event"; topic: "notification.created"; ts: string; data: Notification }
+  | { type: "event"; topic: "notification.read"; ts: string; data: { ids: string[] } }
+  | { type: "event"; topic: "system.metrics"; ts: string; data: SystemMetrics };
 
 /** Rust supervisor types (apps/desktop/src-tauri/src/supervisor.rs). */
 export type BackendState = "starting" | "running" | "restarting" | "failed" | "stopped";

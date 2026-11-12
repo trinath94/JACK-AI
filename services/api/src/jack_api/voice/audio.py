@@ -115,7 +115,7 @@ class SoundDeviceBackend:
 
         try:
             stream = sd.RawInputStream(samplerate=SAMPLE_RATE, channels=1, dtype="int16",
-                                       blocksize=BLOCK,
+                                       blocksize=BLOCK, latency="high",
                                        device=device.index if device else None,
                                        callback=callback)
             stream.start()

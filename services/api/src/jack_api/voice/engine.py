@@ -23,9 +23,11 @@ from jack_api.voice.audio import AudioBackend, AudioDevice, AudioUnavailable, Le
 
 SETTINGS_KEY = "voice"
 LEVEL_INTERVAL_S = 1 / 15  # throttle level events to 15 Hz
+NO_AUDIO_TIMEOUT_S = 2.0  # a microphone that opens but delivers nothing is reported, not hidden
 M3_NOTE = "Speech recognition arrives in Milestone 3; the captured audio was discarded."
 
 Publisher = Callable[[str, Any], None]
+Notifier = Callable[[str, str, str | None], object]  # (kind, title, body): warning notification
 
 
 class VoiceState(StrEnum):
@@ -85,12 +87,17 @@ class PttResult:
 
 class VoiceEngine:
     def __init__(self, backend: AudioBackend, store: SettingsStore, audit: AuditLog,
-                 publish: Publisher, clock: Callable[[], float] = time.monotonic) -> None:
+                 publish: Publisher, clock: Callable[[], float] = time.monotonic,
+                 notify: Notifier | None = None) -> None:
         self._backend = backend
         self._store = store
         self._audit = audit
         self._publish = publish
         self._clock = clock
+        self._notify = notify
+        self.no_audio_timeout_s = NO_AUDIO_TIMEOUT_S
+        self._levels_seen = 0
+        self._watchdog: threading.Timer | None = None
         self._lock = threading.RLock()
         self._settings = store.get(SETTINGS_KEY, VoiceSettings)
         self._state = self._resting_state()
@@ -171,9 +178,14 @@ class VoiceEngine:
                 raise VoiceBlocked("audio_unavailable", str(exc)) from exc
             self._started_at = self._clock()
             self._source = source
+            self._levels_seen = 0
             self._timer = threading.Timer(self._settings.max_listen_s, self._auto_stop)
             self._timer.daemon = True
             self._timer.start()
+            self._watchdog = threading.Timer(self.no_audio_timeout_s, self._check_audio,
+                                             args=(device.name if device else "default",))
+            self._watchdog.daemon = True
+            self._watchdog.start()
             self._set_state(VoiceState.LISTENING)
         self._audit.record("voice.capture.start", outcome="allowed", actor_type="user",
                            details={"source": source,
@@ -190,10 +202,23 @@ class VoiceEngine:
     def _auto_stop(self) -> None:
         self.stop_ptt("max_duration")
 
+    def _check_audio(self, device_name: str) -> None:
+        with self._lock:
+            if self._state is not VoiceState.LISTENING or self._levels_seen > 0:
+                return
+            self._stop_locked("no_audio")
+        message = (f"No audio is arriving from the microphone ({device_name}). Check that it is "
+                   "connected, not in use by another app, and that microphone access is allowed "
+                   "in Windows privacy settings.")
+        self._publish("voice.error", {"code": "no_audio", "message": message})
+        if self._notify:
+            self._notify("voice.no_audio", "No audio from microphone", message)
+
     def _stop_locked(self, reason: str) -> PttResult:
-        if self._timer is not None:
-            self._timer.cancel()
-            self._timer = None
+        for t in (self._timer, self._watchdog):
+            if t is not None and t is not threading.current_thread():
+                t.cancel()
+        self._timer = self._watchdog = None
         if self._stream is not None:
             try:
                 self._stream.close()
@@ -227,6 +252,7 @@ class VoiceEngine:
         self._publish("voice.state", {"state": state.value})
 
     def _on_level(self, level: float) -> None:
+        self._levels_seen += 1
         now = self._clock()
         if now - self._last_level_at < LEVEL_INTERVAL_S:
             return

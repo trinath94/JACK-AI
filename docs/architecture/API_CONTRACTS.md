@@ -60,10 +60,27 @@ TaskEvent = { "seq": 1, "from_status": null, "to_status": "RECEIVED", "reason": 
 | GET | `/v1/audit` | `?limit=100&offset=0` | `{ items: AuditEvent[], total }` |
 | GET | `/v1/audit/verify` | – | `{ "valid": bool, "checked": int, "first_invalid_seq": int|null }` |
 
+### Voice — M2 (capture + level only; ASR/wake word/TTS report unavailable until M3)
+| Method | Path | Body | Response |
+|---|---|---|---|
+| GET | `/v1/voice/status` | – | `{ state, settings, capabilities{capture, capture_detail, wake_word, speech_recognition, speech_synthesis, pending_milestone}, listening_since_s }` |
+| GET | `/v1/voice/devices` | – | `[{ id: "<host api>:<name>", name, host_api, is_default, channels }]` |
+| PATCH | `/v1/voice/settings` | any of `wake_word_enabled, wake_word_sensitivity (0.1–0.9), input_device_id, muted, privacy_mode, max_listen_s (5–120)` | `VoiceSettings` · 409 `unknown_device` |
+| POST | `/v1/voice/ptt/start` | `{ "source": "ui"|"hotkey"|"tray" }` | `VoiceStatus` · 409 `muted` / `privacy_mode` / `unknown_device` / `audio_unavailable` |
+| POST | `/v1/voice/ptt/stop` | – | `{ captured_ms, transcribed:false, transcript:null, detail, stopped_by }` or `null` |
+
+### Notifications — M2
+| GET | `/v1/notifications` | `?unread_only=&limit=&offset=` | `{ items: Notification[], total, unread }` |
+| POST | `/v1/notifications/{id}/read` | – | 204 · 404 |
+| POST | `/v1/notifications/read-all` | – | `{ marked }` |
+
+### System metrics — M2
+| GET | `/v1/system/metrics` | – | `{ cpu_percent, cpu_count, memory_*, disk_*, service_rss_bytes, service_cpu_percent, uptime_s }` |
+
 ### Planned (contracts drafted, not implemented)
 | Area | Routes | Milestone |
 |---|---|---|
-| Voice | `GET/PUT /v1/voice/settings`, `POST /v1/voice/ptt/start|stop`, `GET /v1/voice/devices` | M3 |
+| Voice (ASR, wake word, TTS) | `GET /v1/voice/voices`, transcripts in `voice.utterance`, `voice.wake` events | M3 |
 | Providers | `GET/POST /v1/providers`, `POST /v1/providers/{id}/test`, `GET /v1/usage` | M4 |
 | Requirements | `POST /v1/tasks/{id}/answers`, `GET /v1/tasks/{id}/spec`, `POST /v1/tasks/{id}/spec/approve` | M5 |
 | Approvals | `GET /v1/approvals?status=pending`, `POST /v1/approvals/{id}/decide` (user re-auth for privileged) | M6 |
@@ -79,7 +96,9 @@ Client → server: `{"type":"auth","token":"…"}` (first frame), then `{"type":
 Server → client envelope:
 
 ```json
-{ "type": "event", "topic": "health.changed" | "task.created" | "task.updated" | "hello",
+{ "type": "event", "topic": "hello" | "pong" | "health.changed" | "task.created" | "task.updated"
+           | "voice.state" | "voice.level" | "voice.settings" | "voice.utterance" | "voice.error"
+           | "notification.created" | "notification.read" | "system.metrics",
   "ts": "2026-11-12T15:00:00Z", "data": { … } }
 ```
 
@@ -92,5 +111,10 @@ Close codes: `4401` auth failed/timeout, `4403` origin not allowed, `1001` serve
 | `backend_connection` | `{ baseUrl, wsUrl, token }` once the service is live; error string otherwise |
 | `backend_status` | `{ state: "starting"|"running"|"restarting"|"failed"|"stopped", restarts, lastError, pid }` |
 | `restart_backend` | `()` |
+| `sync_tray(muted, voiceState)` | `()` — updates tray tooltip and mute checkbox (M2) |
+| `ptt_shortcut` | `"Ctrl+Shift+Space"` (M2) |
+
+The global push-to-talk hotkey is handled in Rust and calls `/v1/voice/ptt/start|stop`
+directly, so it works while the window is hidden; failures are emitted as `voice://error`.
 
 Rust also emits the Tauri event `backend://status` on every supervisor state change.

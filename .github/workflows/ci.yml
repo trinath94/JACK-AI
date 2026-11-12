@@ -117,6 +117,45 @@ jobs:
           cargo install cargo-audit --locked --quiet
           cargo audit
 
+  e2e:
+    name: End-to-end (Linux release build, virtual display + virtual microphone)
+    runs-on: ubuntu-24.04
+    needs: [service, frontend, rust]
+    steps:
+      - uses: actions/checkout@v4
+      - name: System packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev \
+            xvfb openbox wmctrl xdotool imagemagick dbus-x11 \
+            pulseaudio pulseaudio-utils libasound2-plugins alsa-utils sox libportaudio2
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+      - run: pnpm install --frozen-lockfile
+      - run: uv run --locked --project services/api python scripts/build_sidecar.py
+      - name: Release build
+        working-directory: apps/desktop
+        run: pnpm tauri build --bundles deb
+      - name: Smoke test
+        run: VOICE_E2E=1 tests/e2e/linux_smoke.sh apps/desktop/src-tauri/target/release/jack-ai e2e-out
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-linux
+          path: |
+            e2e-out/*.png
+            e2e-out/app.log
+
   windows:
     name: Windows x64 build (NSIS + MSI)
     runs-on: windows-latest
@@ -143,6 +182,26 @@ jobs:
         run: uv run --locked pytest -q
       - name: Build service sidecar (jack-service.exe)
         run: uv run --locked --project services/api python scripts/build_sidecar.py
+      - name: Frozen sidecar smoke test (PortAudio and psutil bundled)
+        shell: pwsh
+        run: |
+          $exe = (Get-ChildItem apps/desktop/src-tauri/binaries/jack-service-*.exe).FullName
+          $env:JACK_SESSION_TOKEN = -join ((1..64) | ForEach-Object { '{0:x}' -f (Get-Random -Max 16) })
+          $env:JACK_PORT = "48765"
+          $env:JACK_DATA_DIR = Join-Path $env:RUNNER_TEMP "jack-smoke"
+          $p = Start-Process $exe -PassThru -NoNewWindow
+          try {
+            $h = @{ Authorization = "Bearer $($env:JACK_SESSION_TOKEN)" }
+            for ($i = 0; $i -lt 60; $i++) {
+              try { Invoke-RestMethod http://127.0.0.1:48765/health/live | Out-Null; break } catch { Start-Sleep -Milliseconds 500 }
+            }
+            $voice = Invoke-RestMethod http://127.0.0.1:48765/v1/voice/status -Headers $h
+            $metrics = Invoke-RestMethod http://127.0.0.1:48765/v1/system/metrics -Headers $h
+            $voice.capabilities | Format-List | Out-String | Write-Host
+            "CPU $($metrics.cpu_percent)% / memory $($metrics.memory_percent)%" | Write-Host
+            if ("$($voice.capabilities.capture_detail)" -like "PortAudio not available*") { throw "PortAudio was not bundled into jack-service.exe" }
+            if ($metrics.memory_total_bytes -le 0) { throw "psutil metrics missing" }
+          } finally { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue }
       - name: Rust tests on Windows (includes Job Object supervisor test)
         working-directory: apps/desktop/src-tauri
         shell: pwsh

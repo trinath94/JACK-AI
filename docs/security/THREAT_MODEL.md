@@ -42,12 +42,13 @@ A7 microphone audio and transcripts · A8 money (API spend, purchases).
 | T15 | Malicious update | B5 | Tauri updater minisign signature + Authenticode check before install; updater runs as separate process | M16 |
 | T16 | Secrets stored in DB / memory | A1 | `credential_ref` only; Windows Credential Manager (DPAPI-backed) | M4 |
 | T17 | Credential exfiltration by agent via network tool | B2 | Agents never receive raw secrets; integrations inject credentials inside the adapter | M4/M9 |
-| T18 | Accidental activation / eavesdropping | B6 | Local-only wake word; no audio leaves the device before activation; visible listening indicator; privacy mode; no raw audio persisted | M3 |
+| T18 | Accidental activation / eavesdropping | B6 | **M2:** microphone opens only while push-to-talk is held (auto-close after max duration); samples reduced to a level in the audio callback and discarded; mute/privacy enforced by the service, not the UI; every capture start/stop audited; listening state shown in header, orb and tray. **M3:** local-only wake word, no audio leaves the device before activation, no raw audio persisted | M2 / M3 |
 | T19 | Runaway spend | A8 | Global/project/task spend limits enforced before each call; no automatic purchases | M4 |
 | T20 | Dependency supply-chain compromise | all | Pinned versions + lockfiles; `pip-audit`, `npm audit`, `cargo audit` in CI | **M1** (CI) |
 | T21 | Self-upgrade introduces backdoor | A6 | Self-modification on isolated branch, full test + security scan, user approval, signed package | M16 |
 | T22 | Repudiation of approvals | A5 | Approvals recorded with user id, timestamp, nonce in hash-chained audit | M7 |
 | T23 | Denial of service of local service | B1 | Request size limits; rate limiting per connection | M17 |
+| T24 | Global hotkey abused by another app to open the mic | B1/B6 | Hotkey only starts capture through the authenticated service, which still enforces mute/privacy; capture is visible and audited; auto-close after max duration | **M2** |
 
 ## 4. Residual risks (accepted, documented)
 

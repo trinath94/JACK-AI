@@ -28,7 +28,10 @@ files at the time of writing; re-verify before each release (`scripts/licence-re
 | Playwright (Python) + Chromium | 1.x | Apache-2.0; Chromium BSD | M15. Browsers downloaded on first use, not bundled, to keep installer size down |
 | Anthropic Python SDK | 2.x | MIT | M4 |
 | paramiko / asyncssh | – | LGPL-2.1 / EPL-2.0 | M10 — prefer **asyncssh (EPL-2.0 / GPL-2.0+)**, dynamic use only; final choice recorded in M10 |
-| keyring (Rust) | 4.x | MIT / Apache-2.0 | Windows Credential Manager |
+| keyring (Rust) | 4.x | MIT / Apache-2.0 | Windows Credential Manager (M4) |
+| python-sounddevice | 0.5.6 | MIT | M2 microphone capture. Bundles **PortAudio** (MIT) on Windows/macOS |
+| psutil | 7.2.2 | BSD-3-Clause | M2 system metrics |
+| tauri-plugin-global-shortcut / -autostart | 2.4.1 / 2.7.0 | MIT / Apache-2.0 | M2 push-to-talk hotkey, start with Windows |
 
 ## 2. External services (user-supplied accounts)
 

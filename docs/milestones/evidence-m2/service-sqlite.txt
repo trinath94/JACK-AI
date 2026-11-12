@@ -1,0 +1,15 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.18, pytest-9.2.0, pluggy-1.7.0
+rootdir: /home/user/jack-ai/services/api
+configfile: pyproject.toml
+testpaths: tests
+plugins: anyio-4.16.0, platformdirs-4.14.5
+collected 83 items
+
+tests/test_lifeline.py ....                                              [  4%]
+tests/test_m2_notifications_metrics.py ........                          [ 14%]
+tests/test_m2_voice.py ....................                              [ 38%]
+tests/test_security.py ..................................                [ 79%]
+tests/test_tasks_and_audit.py .................                          [100%]
+
+============================== 83 passed in 6.30s ==============================

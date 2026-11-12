@@ -5,6 +5,30 @@ versioning: [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+### Added — Milestone 2 (dashboard and voice interface)
+- Voice engine: push-to-talk microphone capture through PortAudio with a live input level. Audio
+  is reduced to a level and discarded immediately. Microphones are selected by a stable id; the
+  microphone closes automatically after the maximum listening time; a no-audio watchdog reports
+  microphones that open but deliver nothing; mute and privacy mode are enforced by the service;
+  every capture is audited. Wake word, speech recognition and speech synthesis are reported as
+  unavailable until Milestone 3.
+- Global hold-to-talk hotkey **Ctrl+Shift+Space** that works while the window is hidden.
+- Tray: mute-microphone toggle and a voice-state tooltip.
+- Start with Windows; an autostart launch opens straight to the tray.
+- Notification centre (migration 0002): task terminal and hold states, component health
+  degradation and recovery, microphone problems; live updates; mark read / mark all read.
+- System metrics (CPU, memory, disk, service memory), streamed to the dashboard.
+- Section 21 dashboard: voice orb driven by the live level, microphone and wake-word status,
+  current task and timeline, system resources, approval queue (empty until M6), recent events,
+  integration status, service and component health.
+- Voice Assistant page; shortcut help (`?`), Ctrl+K command focus, Ctrl+4 for Voice; the theme
+  follows the OS live in system mode.
+- CI: Linux end-to-end job on the release build (virtual display and virtual microphone);
+  Windows smoke test of the frozen sidecar.
+
+### Fixed
+- Status pills no longer wrap next to long labels.
+
 ### Added — Milestone 1 (foundation)
 - Section 30 design documents: architecture, components, database, threat model, API contracts,
   roadmap, acceptance test plan, dependencies and licensing.
