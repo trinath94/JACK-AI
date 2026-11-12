@@ -118,6 +118,27 @@ class Notification(Base):
     read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
+class VoiceSession(Base):
+    __tablename__ = "voice_sessions"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    trigger: Mapped[str] = mapped_column(String(16))  # ptt | wake
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow,
+                                                 index=True)
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    task_id: Mapped[str | None] = mapped_column(
+        ForeignKey("tasks.id", ondelete="SET NULL"), nullable=True)
+
+
+class VoiceTurn(Base):
+    __tablename__ = "voice_turns"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    session_id: Mapped[str] = mapped_column(
+        ForeignKey("voice_sessions.id", ondelete="CASCADE"), index=True)
+    role: Mapped[str] = mapped_column(String(8))  # user | jack
+    text: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class Database:
     def __init__(self, url: str) -> None:
         self.url = url
