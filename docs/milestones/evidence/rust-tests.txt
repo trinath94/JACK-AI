@@ -1,0 +1,12 @@
+     Running unittests src/lib.rs (target/debug/deps/jack_ai_lib-a83d903b247bdd36)
+test supervisor::tests::backoff_is_bounded ... ok
+test supervisor::tests::token_is_256_bit_hex_and_unique ... ok
+test supervisor::tests::port_is_loopback_bindable ... ok
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running unittests src/main.rs (target/debug/deps/jack_ai-eedcbf3f11d7cc95)
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running tests/supervisor_it.rs (target/debug/deps/supervisor_it-2c5757274c94f79e)
+2026-11-12 15:57:35,681 INFO alembic.runtime.migration: Running upgrade  -> 0001, Initial schema: devices, settings, audit_events, tasks, task_events.
+test supervises_restarts_and_authenticates ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.81s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s

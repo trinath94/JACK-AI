@@ -7,7 +7,9 @@ third-party library loggers, is covered.
 from __future__ import annotations
 
 import logging
+import logging.handlers
 import re
+from pathlib import Path
 
 REDACTED = "[REDACTED]"
 
@@ -55,11 +57,18 @@ class RedactingFilter(logging.Filter):
         return True
 
 
-def install(level: str = "INFO") -> None:
-    logging.basicConfig(
-        level=level,
-        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-    )
+LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s: %(message)s"
+
+
+def install(level: str = "INFO", log_dir: Path | None = None) -> None:
+    """Configure logging to stderr and, if given, a rotating file (5 x 5 MB)."""
+    handlers: list[logging.Handler] = [logging.StreamHandler()]
+    if log_dir is not None:
+        log_dir.mkdir(parents=True, exist_ok=True)
+        handlers.append(logging.handlers.RotatingFileHandler(
+            log_dir / "jack-service.log", maxBytes=5 * 1024 * 1024, backupCount=5,
+            encoding="utf-8"))
+    logging.basicConfig(level=level, format=LOG_FORMAT, handlers=handlers, force=True)
     flt = RedactingFilter()
     for handler in logging.getLogger().handlers:
         handler.addFilter(flt)

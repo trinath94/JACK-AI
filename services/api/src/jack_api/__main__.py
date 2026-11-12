@@ -24,11 +24,11 @@ def main() -> int:
         fields = ", ".join(".".join(map(str, e["loc"])) + f" ({e['msg']})" for e in exc.errors())
         print(f"jack-service: invalid configuration: {fields}", file=sys.stderr)
         return 2
-    redaction.install(settings.log_level)
+    redaction.install(settings.log_level, settings.log_dir)
     redaction.register_secret(settings.session_token.get_secret_value())
     app = create_app(settings)
     if settings.exit_with_parent:
-        lifeline.watch_parent()
+        lifeline.watch_parent(supervisor_pid=settings.supervisor_pid)
     logging.getLogger(__name__).info("starting jack-service on %s:%d", settings.host, settings.port)
     uvicorn.run(app, host=settings.host, port=settings.port, log_config=None,
                 access_log=False, ws_max_size=1 << 20, timeout_graceful_shutdown=5)

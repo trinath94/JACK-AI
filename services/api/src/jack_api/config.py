@@ -48,6 +48,7 @@ class Settings(BaseSettings):
     database_url: str | None = None
     dev_mode: bool = False
     exit_with_parent: bool = False
+    supervisor_pid: int | None = None
     ws_auth_timeout_s: float = 5.0
     health_interval_s: float = 10.0
     log_level: str = "INFO"
@@ -71,6 +72,10 @@ class Settings(BaseSettings):
         if self.database_url:
             return self.database_url
         return f"sqlite:///{(self.data_dir / 'jack.db').as_posix()}"
+
+    @cached_property
+    def log_dir(self) -> Path:
+        return self.data_dir.parent / "logs"
 
     @cached_property
     def allowed_origins(self) -> tuple[str, ...]:

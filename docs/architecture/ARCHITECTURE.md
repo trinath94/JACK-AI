@@ -152,7 +152,7 @@ scripts installer docker .github/workflows
 
 | Store | Holds | Notes |
 |---|---|---|
-| SQLite (`%LOCALAPPDATA%\JACK AI\data\jack.db`) | preferences, device, tasks & audit in single-user mode until PostgreSQL lands | WAL mode, Alembic migrations [**M1**] |
+| SQLite (`%LOCALAPPDATA%\ai.jack.desktop\data\jack.db`) | preferences, device, tasks & audit in single-user mode until PostgreSQL lands | WAL mode, Alembic migrations [**M1**] |
 | PostgreSQL 16 + pgvector | task history, projects, audit, memory embeddings | Embedded portable PostgreSQL started as a sidecar on loopback with a random password in Credential Manager. Schema is DB-agnostic (SQLAlchemy 2), CI already runs the suite against PostgreSQL [M6/M8] |
 | Windows Credential Manager | API keys, PATs, OAuth refresh tokens, SSH key passphrases | Only references (`credential_ref`) are stored in databases [M4] |
 | Temporal (SQLite file) | workflow event history | `temporal server start-dev --db-filename` sidecar, loopback only [M6] |

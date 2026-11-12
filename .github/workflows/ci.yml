@@ -1,0 +1,193 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "dev/**"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.12"
+  NODE_VERSION: "22"
+
+jobs:
+  service:
+    name: Python service (SQLite + PostgreSQL)
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_PASSWORD: jacktest
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    defaults:
+      run:
+        working-directory: services/api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: uv sync --locked
+      - run: uv run ruff check src tests
+      - run: uv run mypy src
+      - name: Tests (SQLite)
+        run: uv run pytest -q --junitxml=../../reports/service-sqlite.xml
+      - name: Tests (PostgreSQL 16)
+        env:
+          JACK_TEST_DATABASE_URL: postgresql+psycopg://postgres:jacktest@127.0.0.1:5432/postgres
+        run: uv run pytest -q --junitxml=../../reports/service-postgres.xml
+      - name: Dependency audit
+        run: uv run pip-audit --skip-editable
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-reports-service
+          path: reports/
+
+  frontend:
+    name: Frontend (types, tests, build)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pnpm install --frozen-lockfile
+      - name: Shared types match the service OpenAPI schema
+        run: uv run --locked --project services/api python scripts/gen_types.py --check
+      - run: pnpm --filter @jack/desktop typecheck
+      - run: pnpm --filter @jack/desktop test -- --reporter=default --reporter=junit --outputFile.junit=../../reports/frontend.xml
+      - run: pnpm --filter @jack/desktop build
+      - name: Dependency audit (production deps)
+        run: pnpm audit --prod --audit-level high
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-reports-frontend
+          path: reports/
+
+  rust:
+    name: Rust core (fmt, clippy, tests incl. supervisor integration)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: System libraries for Tauri
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Build service sidecar
+        run: uv run --locked --project services/api python scripts/build_sidecar.py
+      - name: Placeholder frontend dist for compile
+        run: mkdir -p apps/desktop/dist && echo '<!doctype html>' > apps/desktop/dist/index.html
+      - working-directory: apps/desktop/src-tauri
+        run: cargo fmt --check
+      - working-directory: apps/desktop/src-tauri
+        run: cargo clippy --all-targets --locked -- -D warnings
+      - working-directory: apps/desktop/src-tauri
+        run: |
+          export JACK_SERVICE_BIN="$(ls "$PWD"/binaries/jack-service-*)"
+          cargo test --locked
+      - name: cargo-audit
+        working-directory: apps/desktop/src-tauri
+        run: |
+          cargo install cargo-audit --locked --quiet
+          cargo audit
+
+  windows:
+    name: Windows x64 build (NSIS + MSI)
+    runs-on: windows-latest
+    needs: [service, frontend, rust]
+    env:
+      HAS_SIGNING_CERT: ${{ secrets.WINDOWS_CERTIFICATE != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+      - run: pnpm install --frozen-lockfile
+      - name: Service tests on Windows
+        working-directory: services/api
+        run: uv run --locked pytest -q
+      - name: Build service sidecar (jack-service.exe)
+        run: uv run --locked --project services/api python scripts/build_sidecar.py
+      - name: Rust tests on Windows (includes Job Object supervisor test)
+        working-directory: apps/desktop/src-tauri
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force ../dist | Out-Null
+          Set-Content ../dist/index.html '<!doctype html>'
+          $env:JACK_SERVICE_BIN = (Get-ChildItem binaries/jack-service-*.exe).FullName
+          cargo test --locked
+      - name: Build installers
+        working-directory: apps/desktop
+        run: pnpm tauri build --bundles nsis,msi
+      - name: Collect installers
+        shell: pwsh
+        run: |
+          $bundle = "apps/desktop/src-tauri/target/release/bundle"
+          New-Item -ItemType Directory -Force dist-installers | Out-Null
+          Copy-Item (Get-ChildItem "$bundle/nsis/*-setup.exe").FullName dist-installers/JACK-AI-Setup-x64.exe
+          Copy-Item (Get-ChildItem "$bundle/msi/*.msi").FullName dist-installers/JACK-AI-x64.msi
+      - name: Sign installers (only when a certificate is configured)
+        if: env.HAS_SIGNING_CERT == 'true'
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: ./scripts/sign-windows.ps1 -Files dist-installers/JACK-AI-Setup-x64.exe,dist-installers/JACK-AI-x64.msi
+      - name: Signature status and checksums (never claims signed unless verified)
+        shell: pwsh
+        run: |
+          $report = foreach ($f in Get-ChildItem dist-installers) {
+            $sig = Get-AuthenticodeSignature $f.FullName
+            [pscustomobject]@{
+              File = $f.Name
+              SizeMB = [math]::Round($f.Length / 1MB, 1)
+              SHA256 = (Get-FileHash $f.FullName -Algorithm SHA256).Hash
+              Signature = $sig.Status.ToString()
+              Signer = if ($sig.SignerCertificate) { $sig.SignerCertificate.Subject } else { "none (unsigned)" }
+            }
+          }
+          $report | Format-Table -AutoSize | Out-String | Write-Host
+          $report | ConvertTo-Json | Set-Content dist-installers/BUILD-REPORT.json
+          "## Windows installers`n" >> $env:GITHUB_STEP_SUMMARY
+          "| File | MB | Signature | SHA-256 |`n|---|---|---|---|" >> $env:GITHUB_STEP_SUMMARY
+          foreach ($r in $report) { "| $($r.File) | $($r.SizeMB) | $($r.Signature) | ``$($r.SHA256)`` |" >> $env:GITHUB_STEP_SUMMARY }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jack-ai-windows-x64
+          path: dist-installers/
+          if-no-files-found: error

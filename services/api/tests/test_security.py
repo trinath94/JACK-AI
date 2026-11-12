@@ -140,3 +140,17 @@ def test_logging_filter_redacts_registered_secret(caplog: pytest.LogCaptureFixtu
         logger.info("token is %s", secret)
     assert secret not in caplog.text
     assert REDACTED in caplog.text
+
+
+def test_file_log_is_redacted(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    from jack_api import redaction
+
+    secret = "f00d" * 16
+    redaction.install("INFO", tmp_path / "logs")
+    redaction.register_secret(secret)
+    logging.getLogger("jack.filetest").warning("auth with Bearer %s", secret)
+    for h in logging.getLogger().handlers:
+        h.flush()
+    text = (tmp_path / "logs" / "jack-service.log").read_text()
+    assert "auth with Bearer" in text
+    assert secret not in text

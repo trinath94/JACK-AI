@@ -47,11 +47,11 @@ def main() -> int:
         "--add-data", f"{migrations}{sep}jack_api/migrations",
         "--collect-submodules", "uvicorn",
         "--hidden-import", "jack_api.app",
+        # Console subsystem on purpose: the supervisor spawns with CREATE_NO_WINDOW, and a
+        # windowed build would leave sys.stderr = None and break logging.
         "--console",
         str(API / "src" / "jack_api" / "__main__.py"),
     ]
-    if sys.platform == "win32":
-        cmd[cmd.index("--console")] = "--noconsole"
     print("+", " ".join(cmd), flush=True)
     subprocess.run(cmd, check=True, cwd=API)
 

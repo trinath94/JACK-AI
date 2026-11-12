@@ -151,6 +151,7 @@ impl Supervisor {
             .env("JACK_DATA_DIR", &self.spec.data_dir)
             .env("JACK_DEV_MODE", if self.spec.dev_mode { "1" } else { "0" })
             .env("JACK_EXIT_WITH_PARENT", "1")
+            .env("JACK_SUPERVISOR_PID", std::process::id().to_string())
             .stdin(Stdio::null())
             .stdout(Stdio::inherit())
             .stderr(Stdio::inherit())
