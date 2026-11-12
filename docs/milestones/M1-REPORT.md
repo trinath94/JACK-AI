@@ -14,7 +14,8 @@ Milestone 1 delivers the Section 30 design documents and a working foundation:
 
 Every claim below is backed by an evidence file in [`evidence/`](evidence/).
 
-**Not yet verified:** the Windows-specific parts. These are the Windows CI job, the NSIS/MSI installers, and the Job Object code path. All development and testing so far ran on Linux. The Windows job is written and pushed, but at the time of writing no run result has been observed (§5).
+**Windows verification:** GitHub Actions run #1 (all 4 jobs green) built both installers on `windows-latest`. On Windows it ran the service tests (51 passed, 4 POSIX-only skipped) and the Rust supervisor integration test, which exercises the Job Object path with `taskkill /F`.
+**Not yet verified:** installing `JACK-AI-Setup-x64.exe` / `JACK-AI-x64.msi` on a real Windows 10/11 machine and using the GUI there. CI builds the installers but does not install them. The GUI was verified end to end on the Linux release build (§2).
 
 ## 2. Test results (real runs, this commit)
 
@@ -28,7 +29,10 @@ Every claim below is backed by an evidence file in [`evidence/`](evidence/).
 | Rust integration test (real frozen service: start, SIGKILL, restart, token rotation) | **1 passed** | [rust-tests.txt](evidence/rust-tests.txt) |
 | `cargo fmt`, `clippy -D warnings` | clean | [rust-lint.txt](evidence/rust-lint.txt) |
 | `cargo audit` | **0 vulnerabilities**; 5 informational warnings (4 unmaintained, 1 unsound), all transitive through Tauri's Linux-only GTK/D-Bus stack (`glib`, `zbus`, `zvariant`, `proc-macro-error`) and not compiled into Windows builds | [rust-audit.txt](evidence/rust-audit.txt) |
-| `pnpm audit --prod` | no known vulnerabilities | CI job `frontend` |
+| `pnpm audit --prod` | no known vulnerabilities | local run and CI job `frontend` |
+| GitHub Actions CI (Linux ×3 + Windows) | **4/4 jobs passed** | [run #1](https://github.com/trinath94/jack-ai/actions/runs/43253918389) |
+| Service tests on Windows | **51 passed, 4 skipped** (POSIX-only lifeline tests) | CI Windows job |
+| Rust unit + integration tests on Windows (Job Object path) | **3 + 1 passed** | CI Windows job |
 | **End-to-end, release build under Xvfb (Linux)** | **11/11 passed** | [e2e-linux-smoke.txt](evidence/e2e-linux-smoke.txt), screenshots below |
 
 ### M1 acceptance criteria (`docs/architecture/ACCEPTANCE_TESTS.md`)
@@ -44,7 +48,7 @@ Every claim below is backed by an evidence file in [`evidence/`](evidence/).
 | 7 | Secrets redacted from console and file logs | ✅ |
 | 8 | Supervisor restarts a killed service | ✅ Rust integration test and e2e |
 | 9 | Frontend renders health; typecheck and build pass | ✅ |
-| 10 | Windows CI produces NSIS and MSI artifacts | ⏳ **Not yet observed** — the workflow is pushed but no run result has been seen |
+| 10 | Windows CI produces NSIS and MSI artifacts | ✅ [CI run #1](https://github.com/trinath94/jack-ai/actions/runs/43253918389): `JACK-AI-Setup-x64.exe` 29.5 MB (SHA-256 `834C265A…EC42`), `JACK-AI-x64.msi` 30.3 MB (SHA-256 `25E29221…074F`), both reported **NotSigned** |
 
 ### End-to-end screenshots (real release binary, bundled sidecar)
 
@@ -81,8 +85,7 @@ Every claim below is backed by an evidence file in [`evidence/`](evidence/).
 - Documentation: developer, installation, configuration, troubleshooting and user guides; CHANGELOG.
 
 ### Partially implemented
-- **Windows packaging:** CI job, NSIS/MSI configuration, installer renaming, checksum and signature report. Not yet run on Windows.
-- **Windows Job Object** (service dies with the app): code compiles only on Windows and has not been exercised yet.
+- **Windows installers:** built by CI (NSIS and MSI, with checksums and a signature report), but not yet installed and run on a real Windows machine. Start Menu and desktop shortcuts come from the Tauri bundler defaults; the start-with-Windows option is M2.
 - **Voice orb:** visual states exist; only the `idle`/`offline` states are driven so far, because there's no voice engine yet.
 - **Task execution:** tasks are stored and their lifecycle is enforced, but nothing executes them yet (M6–M7).
 
@@ -111,7 +114,7 @@ Every claim below is backed by an evidence file in [`evidence/`](evidence/).
 
 | ID | Item | Owner |
 |---|---|---|
-| — | Check the first `CI` workflow run on GitHub, especially the **Windows x64 build** job, and fix anything Windows-specific | Next session |
+| — | Install the CI-built `JACK-AI-Setup-x64.exe` on a Windows 10/11 machine and confirm it launches, shows `service running`, and uninstalls cleanly (download the `jack-ai-windows-x64` artifact from the CI run) | You (I can't run Windows GUIs from this environment) |
 | D-1 | Approve embedded PostgreSQL for M6 (see ARCHITECTURE §5) | You |
 | D-2 | Provide a code-signing certificate or an Azure Trusted Signing account | You |
 | D-3 | Approve training a custom openWakeWord model (the pre-trained models are non-commercial) | You |

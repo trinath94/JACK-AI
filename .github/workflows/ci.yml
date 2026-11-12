@@ -71,7 +71,7 @@ jobs:
       - name: Shared types match the service OpenAPI schema
         run: uv run --locked --project services/api python scripts/gen_types.py --check
       - run: pnpm --filter @jack/desktop typecheck
-      - run: pnpm --filter @jack/desktop test -- --reporter=default --reporter=junit --outputFile.junit=../../reports/frontend.xml
+      - run: pnpm --filter @jack/desktop exec vitest run --reporter=default --reporter=junit --outputFile.junit=../../reports/frontend.xml
       - run: pnpm --filter @jack/desktop build
       - name: Dependency audit (production deps)
         run: pnpm audit --prod --audit-level high
