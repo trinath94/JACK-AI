@@ -13,6 +13,11 @@ dependencies = [
     "alembic==1.20.1",
     "psutil==7.2.2",
     "sounddevice==0.5.6",
+    "faster-whisper==1.2.1",
+    "av==18.1.0",  # faster-whisper 1.2.1 is incompatible with av 19
+    "numpy==2.5.4",
+    "onnxruntime==1.31.1",
+    "comtypes==1.5.0; sys_platform == 'win32'",
 ]
 
 [project.optional-dependencies]
@@ -64,5 +69,5 @@ addopts = "-q"
 known-first-party = ["jack_api", "conftest"]
 
 [[tool.mypy.overrides]]
-module = ["sounddevice"]
+module = ["sounddevice", "comtypes", "comtypes.*", "faster_whisper", "faster_whisper.*", "onnxruntime"]
 ignore_missing_imports = true

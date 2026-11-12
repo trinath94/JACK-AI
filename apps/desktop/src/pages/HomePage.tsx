@@ -21,21 +21,25 @@ const INTEGRATIONS = [
 ];
 
 export function HomePage({ commandRef, shortcut }: { commandRef: RefObject<HTMLInputElement | null>; shortcut: string | null }) {
-  const { supervisor, socket, voice, voiceLevel, lastUtterance, voiceError, clearVoiceError } = useBackend();
+  const { supervisor, socket, voice, voiceLevel, lastUtterance, lastReply, wokeAt, voiceError, clearVoiceError } = useBackend();
   const online = supervisor.state === "running" && socket === "open";
   const orb: OrbState = !online ? "offline" : (voice?.state ?? "idle");
+  const woke = wokeAt !== null && Date.now() - wokeAt < 1500;
 
   return (
     <div className="grid gap-6 2xl:grid-cols-[1fr_400px] xl:grid-cols-[1fr_360px]">
       <div className="min-w-0 space-y-6">
         <Card className="flex flex-col items-center gap-5 py-8">
-          <VoiceOrb state={orb} level={voiceLevel} />
+          <VoiceOrb state={orb} level={voiceLevel} woke={woke} />
           <PushToTalk shortcut={shortcut} />
           <VoiceChips />
-          {lastUtterance && voice?.state !== "listening" && (
-            <p className="max-w-xl rounded-lg bg-[var(--hover)] px-3 py-2 text-center text-xs text-[var(--muted)]" data-testid="last-utterance">
-              Heard {(lastUtterance.captured_ms / 1000).toFixed(1)} s of audio. {lastUtterance.detail}
-            </p>
+          {(lastUtterance || lastReply) && voice?.state !== "listening" && (
+            <div className="w-full max-w-xl space-y-1.5 rounded-xl bg-[var(--hover)] px-4 py-3 text-sm" data-testid="last-exchange">
+              {lastUtterance?.transcript ? (
+                <p><span className="font-semibold">You:</span> {lastUtterance.transcript}</p>
+              ) : null}
+              {lastReply && <p><span className="font-semibold text-[var(--accent)]">JACK:</span> {lastReply}</p>}
+            </div>
           )}
           {voiceError && (
             <p role="alert" className="flex items-center gap-2 rounded-lg bg-rose-500/10 px-3 py-2 text-sm text-rose-600 dark:text-rose-300">
@@ -101,11 +105,20 @@ function VoiceChips() {
       : voice.capabilities.capture
         ? { tone: "ok" as const, text: `Microphone: ${deviceName ?? "system default"}` }
         : { tone: "bad" as const, text: `Microphone: ${voice.capabilities.capture_detail ?? "unavailable"}` };
+  const wake = !voice.settings.wake_word_enabled
+    ? { tone: "muted" as const, text: 'Wake word "Jack": off' }
+    : voice.state === "standby" || voice.state === "listening" || voice.state === "processing" || voice.state === "speaking"
+      ? { tone: "ok" as const, text: 'Wake word "Jack": listening' }
+      : { tone: "warn" as const, text: `Wake word: ${voice.capabilities.wake_word_detail ?? "unavailable"}` };
   return (
     <div className="flex flex-wrap justify-center gap-2">
       <Pill tone={mic.tone}>{mic.text}</Pill>
-      <Pill tone="muted">Wake word "Jack": arrives in Milestone 3</Pill>
-      <Pill tone="muted">Speech recognition: Milestone 3</Pill>
+      <Pill tone={wake.tone}>{wake.text}</Pill>
+      <Pill tone={voice.capabilities.speech_recognition ? "ok" : "warn"}>
+        {voice.capabilities.speech_recognition
+          ? `Speech recognition: ${voice.settings.asr_model}`
+          : "Speech recognition: model not downloaded"}
+      </Pill>
     </div>
   );
 }

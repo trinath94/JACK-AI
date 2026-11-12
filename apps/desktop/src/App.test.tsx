@@ -57,11 +57,11 @@ describe("App", () => {
     expect(within(comps).getByText("sqlite")).toBeInTheDocument();
   });
 
-  it("does not claim wake word or speech recognition exist yet", async () => {
+  it("shows real wake word and speech recognition status", async () => {
     renderApp();
     await connect();
-    expect(await screen.findByText(/Wake word "Jack": arrives in Milestone 3/)).toBeInTheDocument();
-    expect(screen.getByText(/Speech recognition: Milestone 3/)).toBeInTheDocument();
+    expect(await screen.findByText(/Wake word "Jack": off/)).toBeInTheDocument();
+    expect(screen.getByText("Speech recognition: small.en")).toBeInTheDocument();
   });
 
   it("creates a task from a typed command and shows it from the live feed", async () => {
@@ -131,15 +131,18 @@ describe("Voice", () => {
       ws.emit("voice.level", { level: 0.8 });
     });
     expect(screen.getByTestId("voice-orb")).toHaveAttribute("data-state", "listening");
-    expect(screen.getByTestId("voice-status")).toHaveTextContent("voice listening");
+    expect(screen.getByTestId("voice-status")).toHaveTextContent("listening");
     fireEvent.pointerUp(btn);
     await waitFor(() => expect(service.state.calls.some((c) => c.path === "/v1/voice/ptt/stop")).toBe(true));
     act(() => {
+      ws.emit("voice.state", { state: "processing" });
+      ws.emit("voice.utterance", { trigger: "ptt", captured_ms: 1500, transcribed: true, transcript: "build a corporate website", reply: "Got it.", stopped_by: "released", task_id: "t1" });
+      ws.emit("voice.reply", { text: "Got it. I've added it to your tasks." });
       ws.emit("voice.state", { state: "idle" });
-      ws.emit("voice.utterance", { captured_ms: 1500, transcribed: false, transcript: null, detail: "Speech recognition arrives in Milestone 3; the captured audio was discarded.", stopped_by: "released" });
     });
-    expect(await screen.findByTestId("last-utterance")).toHaveTextContent("Heard 1.5 s of audio");
-    expect(screen.getByTestId("last-utterance")).toHaveTextContent("Milestone 3");
+    const ex = await screen.findByTestId("last-exchange");
+    expect(ex).toHaveTextContent("You: build a corporate website");
+    expect(ex).toHaveTextContent("JACK: Got it. I've added it to your tasks.");
   });
 
   it("disables push-to-talk while muted and explains why", async () => {
@@ -200,7 +203,47 @@ describe("Voice", () => {
       const patches = service.state.calls.filter((c) => c.method === "PATCH").map((c) => c.body);
       expect(patches).toEqual([{ input_device_id: "WASAPI:Headset" }, { privacy_mode: true }]);
     });
-    expect(screen.getByRole("switch", { name: /Listen for "Jack"/ })).toBeDisabled();
+  });
+
+  it("voice page manages models, wake word, replies and history", async () => {
+    renderApp();
+    const ws = await connect();
+    fireEvent.keyDown(window, { key: "4", ctrlKey: true });
+    const models = await screen.findByRole("list", { name: "Speech models" });
+    await within(models).findByText("base.en");
+    fireEvent.click(within(models).getByRole("button", { name: /Download/ }));
+    await waitFor(() => expect(service.state.calls.some((c) => c.path === "/v1/voice/models/base.en/download")).toBe(true));
+    act(() => ws.emit("voice.models", service.state.models.map((m) => (m.name === "base.en" ? { ...m, status: "downloading", downloaded_mb: 72.5 } : m))));
+    expect(await screen.findByRole("meter", { name: "Downloading base.en" })).toHaveAttribute("aria-valuenow", "50");
+
+    fireEvent.click(screen.getByRole("switch", { name: /Listen for "Jack"/ }));
+    await waitFor(() => expect(service.state.calls.some((c) => c.method === "PATCH" && (c.body as { wake_word_enabled?: boolean }).wake_word_enabled === true)).toBe(true));
+
+    await within(screen.getByLabelText("Voice")).findByText("Microsoft Zira");
+    fireEvent.click(screen.getByRole("button", { name: /Test voice/ }));
+    await waitFor(() => expect(service.state.calls.some((c) => c.path === "/v1/voice/speak")).toBe(true));
+
+    const hist = await screen.findByRole("list", { name: "Conversation history" });
+    expect(within(hist).getByText("build a website")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Clear/ }));
+    await waitFor(() => expect(service.state.calls.some((c) => c.method === "DELETE" && c.path === "/v1/voice/history")).toBe(true));
+  });
+
+  it("shows the standby state when the wake word is listening", async () => {
+    renderApp();
+    const ws = await connect();
+    act(() => {
+      ws.emit("voice.settings", { ...service.state.voice.settings, wake_word_enabled: true });
+      ws.emit("voice.state", { state: "standby" });
+    });
+    expect(await screen.findByText(/Wake word "Jack": listening/)).toBeInTheDocument();
+    // After "Jack", JACK listens without the button being held: don't tell the user to release it.
+    act(() => ws.emit("voice.state", { state: "listening" }));
+    expect(await screen.findByRole("button", { name: /Listening for your command/ })).toBeInTheDocument();
+    expect(screen.queryByText(/release to stop/)).not.toBeInTheDocument();
+    act(() => ws.emit("voice.state", { state: "standby" }));
+    expect(screen.getByTestId("voice-status")).toHaveTextContent("wake word on");
+    expect(screen.getByTestId("voice-orb")).toHaveAttribute("data-state", "standby");
   });
 });
 

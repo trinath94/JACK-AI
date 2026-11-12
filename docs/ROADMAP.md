@@ -8,7 +8,7 @@ branch, and a report in `docs/milestones/`.
 |---|---|---|---|---|
 | 1 | Foundation: Tauri 2, React, Rust, FastAPI | – | Authenticated loopback service supervised by Rust; health + WS live in UI; task/audit persistence; CI on Linux + Windows build job | **Done** ([report](milestones/M1-REPORT.md)) |
 | 2 | Dashboard & voice interface | 1 | Section 21 dashboard; voice settings, mic selection, mute/privacy enforced server-side; push-to-talk (UI + global hotkey) with real capture and live level; notification centre; system metrics; tray mute; start with Windows; shortcuts | **Done** ([report](milestones/M2-REPORT.md)) |
-| 3 | Wake word & speech | 2 | openWakeWord "jack"/"hey jack" model trained + FA/MD evaluation report; VAD; Whisper (faster-whisper) ASR; Windows SAPI TTS; push-to-talk; privacy mode | Not started |
+| 3 | Wake word & speech | 2 | Wake word "Jack"/"Hey Jack" + FA/MD evaluation report; Silero VAD; Whisper (faster-whisper) ASR; Windows SAPI TTS; push-to-talk; privacy mode; conversation history | **Done** ([report](milestones/M3-REPORT.md)) — wake word ships as `keyword-asr`; a custom openWakeWord model remains open (D-3) |
 | 4 | Claude provider abstraction | 1 | Anthropic API provider + Claude Code provider; Credential Manager storage; usage/cost tracking; spend limits; connection test | Not started |
 | 5 | Requirement discovery | 4 | Category classifier for 19 categories; one-question-at-a-time loop; structured spec; approval for large projects | Not started |
 | 6 | Durable task orchestration | 1,4 | Temporal sidecar; workflows survive kill -9 and reboot; pause/resume/cancel/retry; approvals; PostgreSQL embedded (D-1) | Not started |
@@ -31,5 +31,5 @@ branch, and a report in `docs/milestones/`.
 |---|---|---|---|
 | D-1 | PostgreSQL in a desktop install | Embedded portable PostgreSQL sidecar from M6; SQLite until then | M6 |
 | D-2 | Code-signing certificate | You provide an OV/EV certificate or Azure Trusted Signing account | M18 |
-| D-3 | Wake-word model | Train a custom openWakeWord model for "jack" / "hey jack" (Apache-2.0 code; training data licences to be checked) | M3 |
+| D-3 | Dedicated wake-word model | M3 shipped `keyword-asr` (MIT-only, no decision needed). Optional upgrade: train a custom openWakeWord model with commercially licensed training data, if the field miss rate is too high | After field testing |
 | D-4 | Image provider(s) for M14 | Choose at least one (e.g. OpenAI Images, Stability AI, Google Imagen) | M14 |

@@ -28,6 +28,7 @@ The desktop app sets these for you. They only matter when running the service by
 | `JACK_HEALTH_INTERVAL_S` | `10` | Background health check period |
 | `JACK_METRICS_INTERVAL_S` | `3` | System metrics push period (only while the UI is connected) |
 | `JACK_SUPERVISOR_PID` | set by the app | The service exits if this process disappears (POSIX) |
+| `JACK_MODELS_DIR` | sibling `models` folder | Where speech models are downloaded and loaded from |
 
 ## In-app settings
 
@@ -35,7 +36,8 @@ The desktop app sets these for you. They only matter when running the service by
 |---|---|---|
 | Settings → Appearance | Theme, accent colour, compact sidebar | WebView local storage (per user) |
 | Settings → Startup | Start with Windows. Adds a per-user `Run` registry entry with `--autostart`, so JACK starts hidden in the tray | Windows registry (HKCU) |
-| Voice Assistant | Microphone, mute, privacy mode, maximum listening time (5–120 s), wake-word preference and sensitivity | Service database, `settings` table, key `voice` |
+| Voice Assistant | Microphone, mute, privacy mode, maximum push-to-talk time (5–120 s), wake word on/off and sensitivity, command model (`tiny.en` / `base.en` / `small.en`), end-of-speech pause, spoken replies on/off, voice, speed, keep history, retention days | Service database, `settings` table, key `voice` |
+| Voice Assistant → Speech models | Downloaded Whisper models | `%LOCALAPPDATA%\ai.jack.desktop\models\` (override: `JACK_MODELS_DIR`) |
 | Tray | Mute microphone | Same as above |
 
 The push-to-talk hotkey is fixed to **Ctrl+Shift+Space** in this version.

@@ -1,0 +1,40 @@
+
+ RUN  v5.1.0 /home/user/jack-ai/apps/desktop
+
+ ✓ src/lib/socket.test.ts > JackSocket > authenticates with the first frame and reports open on hello 5ms
+ ✓ src/lib/socket.test.ts > JackSocket > reconnects with backoff after the connection drops 2ms
+ ✓ src/lib/socket.test.ts > JackSocket > does not reconnect after stop 1ms
+ ✓ src/lib/socket.test.ts > JackSocket > ignores malformed frames 1ms
+ ✓ src/lib/api.test.ts > JackApi > sends the bearer token and JSON body 4ms
+ ✓ src/lib/api.test.ts > JackApi > parses the error envelope 1ms
+ ✓ src/lib/api.test.ts > JackApi > encodes task ids and list params 1ms
+ ✓ src/App.test.tsx > App > renders all 16 Section 21 navigation entries 118ms
+ ✓ src/App.test.tsx > App > shows live health once the service connects 102ms
+ ✓ src/App.test.tsx > App > shows real wake word and speech recognition status 71ms
+ ✓ src/App.test.tsx > App > creates a task from a typed command and shows it from the live feed 127ms
+ ✓ src/App.test.tsx > App > marks unimplemented sections honestly 32ms
+ ✓ src/App.test.tsx > App > reflects supervisor failures and turns the orb offline 57ms
+ ✓ src/App.test.tsx > App > supports keyboard shortcuts, including Ctrl+K and the ? dialog 93ms
+ ✓ src/App.test.tsx > Voice > push-to-talk opens on press, closes on release, and the orb follows the level 78ms
+ ✓ src/App.test.tsx > Voice > disables push-to-talk while muted and explains why 41ms
+ ✓ src/App.test.tsx > Voice > shows service errors from push-to-talk 56ms
+ ✓ src/App.test.tsx > Voice > shows errors raised by the native hotkey 38ms
+ ✓ src/App.test.tsx > Voice > surfaces a microphone that delivers no audio 34ms
+ ✓ src/App.test.tsx > Voice > syncs mute state to the tray 33ms
+ ✓ src/App.test.tsx > Voice > voice page saves microphone, mute and privacy settings 68ms
+ ✓ src/App.test.tsx > Voice > voice page manages models, wake word, replies and history 371ms
+ ✓ src/App.test.tsx > Voice > shows the standby state when the wake word is listening 75ms
+ ✓ src/App.test.tsx > Notifications, metrics, settings > notification centre shows unread count, live arrivals, and marks read 102ms
+ ✓ src/App.test.tsx > Notifications, metrics, settings > renders live system metrics 55ms
+ ✓ src/App.test.tsx > Notifications, metrics, settings > toggles start with Windows 53ms
+ ✓ src/App.test.tsx > Notifications, metrics, settings > switches to light theme 30ms
+
+ Test Files  3 passed (3)
+      Tests  27 passed (27)
+   Start at  20:02:51
+   Duration  2.60s (tests 43%, environment 38%, setup 10%, import 6%, transform 2%)
+
+
+> @jack/desktop@0.1.0 typecheck /home/user/jack-ai/apps/desktop
+> tsc --noEmit -p tsconfig.json
+

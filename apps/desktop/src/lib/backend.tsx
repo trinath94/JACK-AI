@@ -4,9 +4,10 @@ import type {
   ComponentHealth,
   HealthStatus,
   Notification,
-  PttResult,
+  SpeechModel,
   SystemMetrics,
   Task,
+  Utterance,
   VoiceStatus,
   WsEvent,
 } from "@jack/shared-types";
@@ -90,7 +91,13 @@ export interface BackendContextValue {
   tasks: Task[];
   voice: VoiceStatus | null;
   voiceLevel: number;
-  lastUtterance: PttResult | null;
+  lastUtterance: Utterance | null;
+  /** JACK's most recent spoken (or shown) reply. */
+  lastReply: string | null;
+  /** Timestamp of the last wake-word detection, for a brief visual cue. */
+  wokeAt: number | null;
+  models: SpeechModel[];
+  refreshModels(): Promise<void>;
   voiceError: string | null;
   notifications: Notification[];
   unread: number;
@@ -127,7 +134,10 @@ export function BackendProvider({
   const [tasks, setTasks] = useState<Task[]>([]);
   const [voice, setVoice] = useState<VoiceStatus | null>(null);
   const [voiceLevel, setVoiceLevel] = useState(0);
-  const [lastUtterance, setLastUtterance] = useState<PttResult | null>(null);
+  const [lastUtterance, setLastUtterance] = useState<Utterance | null>(null);
+  const [lastReply, setLastReply] = useState<string | null>(null);
+  const [wokeAt, setWokeAt] = useState<number | null>(null);
+  const [models, setModels] = useState<SpeechModel[]>([]);
   const [voiceError, setVoiceError] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unread, setUnread] = useState(0);
@@ -179,6 +189,11 @@ export function BackendProvider({
     setVoice(await api.voiceStatus());
   }, [api]);
 
+  const refreshModels = useCallback(async () => {
+    if (!api) return;
+    setModels(await api.speechModels());
+  }, [api]);
+
   const refreshNotifications = useCallback(async () => {
     if (!api) return;
     const list = await api.notifications(false, 50);
@@ -196,6 +211,7 @@ export function BackendProvider({
     void refreshTasks().catch(() => {});
     void refreshVoice().catch(() => {});
     void refreshNotifications().catch(() => {});
+    void refreshModels().catch(() => {});
     void api.metrics().then(setMetrics).catch(() => {});
     const onEvent = (e: WsEvent) => {
       switch (e.topic) {
@@ -220,6 +236,19 @@ export function BackendProvider({
           break;
         case "voice.utterance":
           setLastUtterance(e.data);
+          setActivity((n) => n + 1);
+          break;
+        case "voice.reply":
+          setLastReply(e.data.text);
+          break;
+        case "voice.wake":
+          setWokeAt(Date.now());
+          setActivity((n) => n + 1);
+          break;
+        case "voice.models":
+          setModels(e.data);
+          // Capabilities depend on which models are present.
+          void refreshVoice().catch(() => {});
           break;
         case "voice.error":
           setVoiceError(e.data.message);
@@ -245,7 +274,7 @@ export function BackendProvider({
     const s = new JackSocket(conn, { onEvent, onState: setSocket, WebSocketImpl });
     s.start();
     return () => s.stop();
-  }, [conn, api, refreshTasks, refreshVoice, refreshNotifications, WebSocketImpl]);
+  }, [conn, api, refreshTasks, refreshVoice, refreshNotifications, refreshModels, WebSocketImpl]);
 
   // Keep the tray tooltip / mute checkbox in step with the service.
   const voiceStateKey = voice ? `${voice.settings.muted}|${voice.state}` : null;
@@ -277,6 +306,10 @@ export function BackendProvider({
     voice,
     voiceLevel,
     lastUtterance,
+    lastReply,
+    wokeAt,
+    models,
+    refreshModels,
     voiceError,
     notifications,
     unread,

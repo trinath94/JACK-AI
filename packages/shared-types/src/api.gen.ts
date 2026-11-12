@@ -277,6 +277,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/voice/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** History */
+        get: operations["history_v1_voice_history_get"];
+        put?: never;
+        post?: never;
+        /** History Clear */
+        delete: operations["history_clear_v1_voice_history_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/voice/models": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Models */
+        get: operations["models_v1_voice_models_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/voice/models/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Model Delete */
+        delete: operations["model_delete_v1_voice_models__name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/voice/models/{name}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Model Download */
+        post: operations["model_download_v1_voice_models__name__download_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/voice/ptt/start": {
         parameters: {
             query?: never;
@@ -303,7 +372,11 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Ptt Stop */
+        /**
+         * Ptt Stop
+         * @description Closes the microphone. Recognition continues in the background; the result arrives
+         *     as a ``voice.utterance`` event.
+         */
         post: operations["ptt_stop_v1_voice_ptt_stop_post"];
         delete?: never;
         options?: never;
@@ -328,6 +401,23 @@ export interface paths {
         patch: operations["voice_settings_v1_voice_settings_patch"];
         trace?: never;
     };
+    "/v1/voice/speak": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Speak */
+        post: operations["speak_v1_voice_speak_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/voice/status": {
         parameters: {
             query?: never;
@@ -337,6 +427,40 @@ export interface paths {
         };
         /** Voice Status */
         get: operations["voice_status_v1_voice_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/voice/stop-speaking": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Stop Speaking */
+        post: operations["stop_speaking_v1_voice_stop_speaking_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/voice/voices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Tts Voices */
+        get: operations["tts_voices_v1_voice_voices_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -439,6 +563,13 @@ export interface components {
             /** Version */
             version: string;
         };
+        /** HistoryOut */
+        HistoryOut: {
+            /** Items */
+            items: components["schemas"]["SessionOut"][];
+            /** Total */
+            total: number;
+        };
         /** NotificationList */
         NotificationList: {
             /** Items */
@@ -470,19 +601,6 @@ export interface components {
             /** Title */
             title: string;
         };
-        /** PttResultOut */
-        PttResultOut: {
-            /** Captured Ms */
-            captured_ms: number;
-            /** Detail */
-            detail: string;
-            /** Stopped By */
-            stopped_by: string;
-            /** Transcribed */
-            transcribed: boolean;
-            /** Transcript */
-            transcript: string | null;
-        };
         /** PttStart */
         PttStart: {
             /**
@@ -492,10 +610,57 @@ export interface components {
              */
             source: "ui" | "hotkey" | "tray";
         };
+        /** PttStoppedOut */
+        PttStoppedOut: {
+            /** Captured Ms */
+            captured_ms: number;
+            /** Processing */
+            processing: boolean;
+            /** Stopped By */
+            stopped_by: string;
+        };
         /** ReasonBody */
         ReasonBody: {
             /** Reason */
             reason?: string | null;
+        };
+        /** SessionOut */
+        SessionOut: {
+            /** Ended At */
+            ended_at: string | null;
+            /** Id */
+            id: string;
+            /** Started At */
+            started_at: string;
+            /** Task Id */
+            task_id: string | null;
+            /** Trigger */
+            trigger: string;
+            /** Turns */
+            turns: components["schemas"]["TurnOut"][];
+        };
+        /** SpeakBody */
+        SpeakBody: {
+            /** Text */
+            text: string;
+        };
+        /** SpeechModelOut */
+        SpeechModelOut: {
+            /** Downloaded Mb */
+            downloaded_mb: number;
+            /** Error */
+            error: string | null;
+            /** Name */
+            name: string;
+            /** Purpose */
+            purpose: string;
+            /** Size Mb */
+            size_mb: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "not_downloaded" | "downloading" | "ready" | "error";
         };
         /** SystemInfo */
         SystemInfo: {
@@ -646,6 +811,27 @@ export interface components {
             reason?: string | null;
             to_status: components["schemas"]["TaskStatus"];
         };
+        /** TtsVoiceOut */
+        TtsVoiceOut: {
+            /** Id */
+            id: string;
+            /** Language */
+            language: string | null;
+            /** Name */
+            name: string;
+        };
+        /** TurnOut */
+        TurnOut: {
+            /** Created At */
+            created_at: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "user" | "jack";
+            /** Text */
+            text: string;
+        };
         /** ValidationError */
         ValidationError: {
             /** Context */
@@ -665,19 +851,48 @@ export interface components {
             capture: boolean;
             /** Capture Detail */
             capture_detail: string | null;
-            /** Pending Milestone */
-            pending_milestone: number;
             /** Speech Recognition */
             speech_recognition: boolean;
+            /** Speech Recognition Detail */
+            speech_recognition_detail: string | null;
             /** Speech Synthesis */
             speech_synthesis: boolean;
+            /** Speech Synthesis Detail */
+            speech_synthesis_detail: string | null;
+            /** Speech Synthesis Engine */
+            speech_synthesis_engine: string;
             /** Wake Word */
             wake_word: boolean;
+            /** Wake Word Detail */
+            wake_word_detail: string | null;
+            /** Wake Word Engine */
+            wake_word_engine: string;
         };
         /** VoiceSettings */
         VoiceSettings: {
+            /**
+             * Asr Model
+             * @default small.en
+             * @enum {string}
+             */
+            asr_model: "tiny.en" | "base.en" | "small.en";
+            /**
+             * End Of Speech Ms
+             * @default 800
+             */
+            end_of_speech_ms: number;
+            /**
+             * History Retention Days
+             * @default 30
+             */
+            history_retention_days: number;
             /** Input Device Id */
             input_device_id?: string | null;
+            /**
+             * Keep History
+             * @default true
+             */
+            keep_history: boolean;
             /**
              * Max Listen S
              * @default 30
@@ -694,6 +909,18 @@ export interface components {
              */
             privacy_mode: boolean;
             /**
+             * Tts Enabled
+             * @default true
+             */
+            tts_enabled: boolean;
+            /**
+             * Tts Rate
+             * @default 1
+             */
+            tts_rate: number;
+            /** Tts Voice Id */
+            tts_voice_id?: string | null;
+            /**
              * Wake Word Enabled
              * @default false
              */
@@ -706,14 +933,28 @@ export interface components {
         };
         /** VoiceSettingsPatch */
         VoiceSettingsPatch: {
+            /** Asr Model */
+            asr_model?: ("tiny.en" | "base.en" | "small.en") | null;
+            /** End Of Speech Ms */
+            end_of_speech_ms?: number | null;
+            /** History Retention Days */
+            history_retention_days?: number | null;
             /** Input Device Id */
             input_device_id?: string | null;
+            /** Keep History */
+            keep_history?: boolean | null;
             /** Max Listen S */
             max_listen_s?: number | null;
             /** Muted */
             muted?: boolean | null;
             /** Privacy Mode */
             privacy_mode?: boolean | null;
+            /** Tts Enabled */
+            tts_enabled?: boolean | null;
+            /** Tts Rate */
+            tts_rate?: number | null;
+            /** Tts Voice Id */
+            tts_voice_id?: string | null;
             /** Wake Word Enabled */
             wake_word_enabled?: boolean | null;
             /** Wake Word Sensitivity */
@@ -729,7 +970,7 @@ export interface components {
              * State
              * @enum {string}
              */
-            state: "disabled" | "idle" | "listening" | "processing" | "speaking";
+            state: "disabled" | "idle" | "standby" | "listening" | "processing" | "speaking";
         };
     };
     responses: never;
@@ -1215,6 +1456,142 @@ export interface operations {
             };
         };
     };
+    history_v1_voice_history_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HistoryOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    history_clear_v1_voice_history_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: number;
+                    };
+                };
+            };
+        };
+    };
+    models_v1_voice_models_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpeechModelOut"][];
+                };
+            };
+        };
+    };
+    model_delete_v1_voice_models__name__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    model_download_v1_voice_models__name__download_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: boolean;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     ptt_start_v1_voice_ptt_start_post: {
         parameters: {
             query?: never;
@@ -1263,7 +1640,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PttResultOut"] | null;
+                    "application/json": components["schemas"]["PttStoppedOut"] | null;
                 };
             };
         };
@@ -1301,6 +1678,41 @@ export interface operations {
             };
         };
     };
+    speak_v1_voice_speak_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SpeakBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: boolean;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     voice_status_v1_voice_status_get: {
         parameters: {
             query?: never;
@@ -1317,6 +1729,48 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VoiceStatus"];
+                };
+            };
+        };
+    };
+    stop_speaking_v1_voice_stop_speaking_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: boolean;
+                    };
+                };
+            };
+        };
+    };
+    tts_voices_v1_voice_voices_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TtsVoiceOut"][];
                 };
             };
         };

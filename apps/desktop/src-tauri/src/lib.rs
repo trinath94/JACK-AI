@@ -59,6 +59,7 @@ fn ptt_shortcut() -> &'static str {
 pub fn tray_tooltip(voice_state: &str, muted: bool) -> String {
     let what = match (muted, voice_state) {
         (true, _) => "microphone muted",
+        (_, "standby") => "listening for \u{201c}Jack\u{201d}",
         (_, "listening") => "listening",
         (_, "processing") => "processing",
         (_, "speaking") => "speaking",
@@ -301,6 +302,10 @@ mod tests {
     fn tooltip_reflects_state() {
         assert_eq!(tray_tooltip("idle", false), "JACK AI — ready");
         assert_eq!(tray_tooltip("listening", false), "JACK AI — listening");
+        assert_eq!(
+            tray_tooltip("standby", false),
+            "JACK AI — listening for \u{201c}Jack\u{201d}"
+        );
         assert_eq!(
             tray_tooltip("listening", true),
             "JACK AI — microphone muted"

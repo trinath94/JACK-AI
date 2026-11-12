@@ -1,0 +1,144 @@
+{
+  "engine": "keyword-asr",
+  "wake_model": "tiny.en",
+  "transcriptions": 1364,
+  "samples": 684,
+  "negative_speech_minutes": 28.5,
+  "runtime_s": 528,
+  "results": [
+    {
+      "sensitivity": 0.3,
+      "positives": 240,
+      "misses": 113,
+      "miss_rate_pct": 47.1,
+      "miss_rate_by_noise_pct": {
+        "clean": 33.8,
+        "20dB": 37.5,
+        "10dB": 70.0
+      },
+      "negatives": 444,
+      "false_activations": 1,
+      "false_activations_per_hour": 2.1,
+      "false_activations_everyday": 0,
+      "false_activations_confusable": 1,
+      "false_activation_examples": [
+        "Jackson will join us later."
+      ],
+      "missed_examples": [
+        "Hey Jack, build a website. [en-029, 10.0]",
+        "Hey Jack, build a website. [en-029, 20.0]",
+        "Hey Jack, build a website. [en-029, None]",
+        "Hey Jack, build a website. [en-gb+f4, None]",
+        "Hey Jack, build a website. [en-gb, 10.0]",
+        "Hey Jack, build a website. [en-gb, None]",
+        "Hey Jack, build a website. [en-gb-scotland, 10.0]",
+        "Hey Jack, build a website. [en-gb-scotland, 20.0]",
+        "Hey Jack, build a website. [en-gb-scotland, None]",
+        "Hey Jack, build a website. [en-gb-x-rp, 10.0]"
+      ]
+    },
+    {
+      "sensitivity": 0.5,
+      "positives": 240,
+      "misses": 30,
+      "miss_rate_pct": 12.5,
+      "miss_rate_by_noise_pct": {
+        "clean": 7.5,
+        "20dB": 7.5,
+        "10dB": 22.5
+      },
+      "negatives": 444,
+      "false_activations": 20,
+      "false_activations_per_hour": 42.1,
+      "false_activations_everyday": 0,
+      "false_activations_confusable": 20,
+      "false_activation_examples": [
+        "Hey Jake, how are you?",
+        "Hey Zack, over here.",
+        "Jackson will join us later.",
+        "Jacqueline sent the report."
+      ],
+      "missed_examples": [
+        "Hey Jack, build a website. [en-029, 20.0]",
+        "Hey Jack, build a website. [en-gb-scotland, 20.0]",
+        "Hey Jack, build a website. [en-gb-scotland, None]",
+        "Hey Jack. [en-029, 10.0]",
+        "Hey Jack. [en-029, 20.0]",
+        "Hey Jack. [en-gb+f4, None]",
+        "Hey Jack. [en-gb, None]",
+        "Hey Jack. [en-gb-scotland, 10.0]",
+        "Hey Jack. [en-gb-scotland, None]",
+        "Jack, open GitHub. [en-029, 10.0]"
+      ]
+    },
+    {
+      "sensitivity": 0.7,
+      "positives": 240,
+      "misses": 30,
+      "miss_rate_pct": 12.5,
+      "miss_rate_by_noise_pct": {
+        "clean": 7.5,
+        "20dB": 7.5,
+        "10dB": 22.5
+      },
+      "negatives": 444,
+      "false_activations": 20,
+      "false_activations_per_hour": 42.1,
+      "false_activations_everyday": 0,
+      "false_activations_confusable": 20,
+      "false_activation_examples": [
+        "Hey Jake, how are you?",
+        "Hey Zack, over here.",
+        "Jackson will join us later.",
+        "Jacqueline sent the report."
+      ],
+      "missed_examples": [
+        "Hey Jack, build a website. [en-029, 20.0]",
+        "Hey Jack, build a website. [en-gb-scotland, 20.0]",
+        "Hey Jack, build a website. [en-gb-scotland, None]",
+        "Hey Jack. [en-029, 10.0]",
+        "Hey Jack. [en-029, 20.0]",
+        "Hey Jack. [en-gb+f4, None]",
+        "Hey Jack. [en-gb, None]",
+        "Hey Jack. [en-gb-scotland, 10.0]",
+        "Hey Jack. [en-gb-scotland, None]",
+        "Jack, open GitHub. [en-029, 10.0]"
+      ]
+    },
+    {
+      "sensitivity": 0.9,
+      "positives": 240,
+      "misses": 30,
+      "miss_rate_pct": 12.5,
+      "miss_rate_by_noise_pct": {
+        "clean": 7.5,
+        "20dB": 7.5,
+        "10dB": 22.5
+      },
+      "negatives": 444,
+      "false_activations": 20,
+      "false_activations_per_hour": 42.1,
+      "false_activations_everyday": 0,
+      "false_activations_confusable": 20,
+      "false_activation_examples": [
+        "Hey Jake, how are you?",
+        "Hey Zack, over here.",
+        "Jackson will join us later.",
+        "Jacqueline sent the report."
+      ],
+      "missed_examples": [
+        "Hey Jack, build a website. [en-029, 20.0]",
+        "Hey Jack, build a website. [en-gb-scotland, 20.0]",
+        "Hey Jack, build a website. [en-gb-scotland, None]",
+        "Hey Jack. [en-029, 10.0]",
+        "Hey Jack. [en-029, 20.0]",
+        "Hey Jack. [en-gb+f4, None]",
+        "Hey Jack. [en-gb, None]",
+        "Hey Jack. [en-gb-scotland, 10.0]",
+        "Hey Jack. [en-gb-scotland, None]",
+        "Jack, open GitHub. [en-029, 10.0]"
+      ]
+    }
+  ],
+  "caveat": "Synthetic espeak-ng speech with white noise; not a field estimate."
+}

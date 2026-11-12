@@ -1,8 +1,9 @@
 """Microphone access through PortAudio (python-sounddevice).
 
-Milestone 2 uses capture only to measure input level (for the orb and the microphone test).
-Samples are reduced to a level in the audio callback and immediately discarded; nothing is
-buffered, stored or transmitted. Milestone 3 adds VAD, wake word and ASR on top of this.
+The backend delivers 16 kHz mono int16 frames of ``FRAME`` samples (32 ms) to a callback.
+The callback only copies the frame into a queue; all processing (filtering, level, VAD,
+wake word, ASR) happens on the voice worker thread. Audio is never written to disk or sent
+off the machine.
 """
 
 from __future__ import annotations
@@ -10,16 +11,19 @@ from __future__ import annotations
 import logging
 import math
 import sys
-from array import array
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Protocol
 
+import numpy as np
+
 log = logging.getLogger(__name__)
 
 SAMPLE_RATE = 16_000
-BLOCK = 1_600  # 100 ms
+FRAME = 512  # 32 ms; the Silero VAD window at 16 kHz
 FLOOR_DB = -60.0
+
+Frames = np.ndarray  # shape (FRAME,), dtype int16
 
 
 @dataclass(frozen=True)
@@ -32,29 +36,27 @@ class AudioDevice:
     channels: int
 
 
-class LevelStream(Protocol):
+class AudioStream(Protocol):
     def close(self) -> None: ...
 
 
 class AudioBackend(Protocol):
     def status(self) -> tuple[bool, str | None]: ...
     def input_devices(self) -> list[AudioDevice]: ...
-    def open_level_stream(self, device: AudioDevice | None,
-                          on_level: Callable[[float], None]) -> LevelStream: ...
+    def open_stream(self, device: AudioDevice | None,
+                    on_frame: Callable[[Frames], None]) -> AudioStream: ...
 
 
 class AudioUnavailable(Exception):
     pass
 
 
-def level_from_int16(samples: array[int]) -> float:
+def level_from_int16(samples: Any) -> float:
     """Map RMS of int16 samples to 0..1 on a -60..0 dBFS scale."""
-    if not samples:
+    a = np.asarray(samples, dtype=np.float64)
+    if a.size == 0:
         return 0.0
-    acc = 0
-    for v in samples:
-        acc += v * v
-    rms = math.sqrt(acc / len(samples)) / 32768.0
+    rms = math.sqrt(float(np.mean(a * a))) / 32768.0
     if rms <= 0:
         return 0.0
     db = 20 * math.log10(rms)
@@ -101,24 +103,32 @@ class SoundDeviceBackend:
             out.sort(key=lambda a: (a.host_api != "Windows WASAPI", a.name))
         return out
 
-    def open_level_stream(self, device: AudioDevice | None,
-                          on_level: Callable[[float], None]) -> LevelStream:
+    def open_stream(self, device: AudioDevice | None,
+                    on_frame: Callable[[Frames], None]) -> AudioStream:
         if self._sd is None:
             raise AudioUnavailable(self._error or "audio backend unavailable")
         sd = self._sd
 
-        def callback(indata: Any, _frames: int, _time: Any, _status: Any) -> None:
-            samples = array("h")
-            samples.frombytes(bytes(indata))
-            on_level(level_from_int16(samples))
-            # `indata` is reused by PortAudio; we keep no reference to the audio.
+        first = [True]
+
+        def callback(indata: Any, _frames: int, _time: Any, status: Any) -> None:
+            if first[0]:
+                first[0] = False
+                log.info("microphone delivering audio")
+            if status:
+                log.debug("PortAudio input status: %s", status)
+            # Copy: PortAudio reuses the buffer after the callback returns.
+            on_frame(np.frombuffer(bytes(indata), dtype=np.int16).copy())
 
         try:
+            # latency="high": tolerant of slow drivers; 32 ms frames are still delivered.
             stream = sd.RawInputStream(samplerate=SAMPLE_RATE, channels=1, dtype="int16",
-                                       blocksize=BLOCK, latency="high",
+                                       blocksize=FRAME, latency="high",
                                        device=device.index if device else None,
                                        callback=callback)
             stream.start()
         except Exception as exc:  # noqa: BLE001 - PortAudioError and driver errors
             raise AudioUnavailable(f"could not open microphone: {exc}") from exc
+        log.info("microphone opened: %s (latency %.0f ms)",
+                 device.id if device else "system default", 1000 * float(stream.latency))
         return stream  # type: ignore[no-any-return]

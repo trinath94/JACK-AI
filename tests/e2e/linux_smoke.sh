@@ -10,8 +10,11 @@
 #   6. quitting gracefully (SIGTERM) leaves no service processes
 #   7. even if the app is SIGKILLed, the service shuts itself down (lifeline)
 #   8. the audit hash chain is intact afterwards
-#   9. (VOICE_E2E=1) holding the global hotkey Ctrl+Shift+Space captures real audio from a
-#      virtual PulseAudio microphone playing a tone, and releasing it closes the microphone
+#   9. (VOICE_E2E=1) holding the global hotkey Ctrl+Shift+Space while synthesised speech
+#      plays into a virtual PulseAudio microphone captures it; releasing closes the mic;
+#      with speech models (JACK_MODELS_DIR) the command becomes a voice task
+#  10. (VOICE_E2E=1 + models) with the wake word on, "Hey Jack." → spoken reply →
+#      "Create a professional company logo." becomes a wake-triggered voice task
 #
 # Usage: [VOICE_E2E=1] tests/e2e/linux_smoke.sh <jack-ai binary> <output dir>
 # Requires: Xvfb, openbox, wmctrl, xdotool, imagemagick (import), dbus, python3;
@@ -26,6 +29,13 @@ export DISPLAY=:97
 export XDG_DATA_HOME="$OUT/xdg-data" XDG_CONFIG_HOME="$OUT/xdg-config"
 export WEBKIT_DISABLE_COMPOSITING_MODE=1 NO_AT_BRIDGE=1
 DB="$XDG_DATA_HOME/ai.jack.desktop/data/jack.db"
+HAVE_MODELS=0
+if [[ -n "${JACK_MODELS_DIR:-}" ]] && ls -d "$JACK_MODELS_DIR"/models--Systran--faster-whisper-{tiny,small}.en/snapshots/* >/dev/null 2>&1; then
+  HAVE_MODELS=1; export JACK_MODELS_DIR
+fi
+say() {  # say "<text>": synthesise and play into the virtual microphone
+  espeak-ng -v en-us -s 150 -w "$OUT/say.wav" "$1" && paplay -d jackvirt "$OUT/say.wav"
+}
 PASS=0; FAIL=0
 ok()  { echo "PASS  $*"; PASS=$((PASS+1)); }
 bad() { echo "FAIL  $*"; FAIL=$((FAIL+1)); }
@@ -47,7 +57,14 @@ if [[ "${VOICE_E2E:-0}" == 1 ]]; then
   pactl list short sinks | grep -q jackvirt || pactl load-module module-null-sink sink_name=jackvirt >/dev/null
   pactl list short sources | grep -q jackmic || pactl load-module module-remap-source master=jackvirt.monitor source_name=jackmic >/dev/null
   pactl set-default-source jackmic
-  export PULSE_SERVER="$(pactl info | sed -n 's/^Server String: //p')"
+  # A null sink suspends when idle and its monitor then delivers no frames at all; a real
+  # microphone never does that, so keep the virtual device running.
+  pactl unload-module module-suspend-on-idle 2>/dev/null || true
+  SRV="$(pactl info | sed -n 's/^Server String: //p')"
+  [[ "$SRV" == unix:* || "$SRV" == tcp:* ]] || SRV="unix:$SRV"
+  export PULSE_SERVER="$SRV"
+  # HOME changes below (for .asoundrc); keep the PulseAudio auth cookie reachable.
+  [[ -f "$HOME/.config/pulse/cookie" ]] && export PULSE_COOKIE="$HOME/.config/pulse/cookie"
   export HOME="$OUT/home"; mkdir -p "$HOME"
   printf 'pcm.!default { type pulse }\nctl.!default { type pulse }\n' > "$HOME/.asoundrc"
 fi
@@ -87,14 +104,17 @@ fi
 
 # 9: global hotkey push-to-talk with real audio capture
 if [[ "${VOICE_E2E:-0}" == 1 && -n "$WIN" ]]; then
-  sox -n -t wav - synth 8 sine 440 vol 0.5 2>/dev/null | paplay -d jackvirt & TONE=$!
-  sleep 0.5
+  MIC0=$(grep -c "microphone delivering audio" "$OUT/app.log" || true)
   xdotool keydown ctrl+shift+space
-  sleep 1.5
+  # Virtual devices can take a moment to start; speak once audio is flowing.
+  wait_until 5 bash -c "[[ \$(grep -c 'microphone delivering audio' '$OUT/app.log') -gt $MIC0 ]]" || true
+  sleep 0.2
+  say "Build a professional corporate website." & SAY=$!
+  sleep 1.2
   import -window root "$OUT/04-listening.png"
-  sleep 1.5
+  wait $SAY
+  sleep 1.0
   xdotool keyup ctrl+shift+space
-  kill $TONE 2>/dev/null || true
   wait_until 10 q_ge "select count(*) from audit_events where action='voice.capture.stop'" 1 || true
   SRC=$(q "select json_extract(details,'$.source') from audit_events where action='voice.capture.start' order by seq desc limit 1")
   [[ "$SRC" == hotkey ]] && ok "global hotkey Ctrl+Shift+Space opened the microphone (source=$SRC)" || bad "hotkey capture not started (source=$SRC)"
@@ -103,7 +123,17 @@ if [[ "${VOICE_E2E:-0}" == 1 && -n "$WIN" ]]; then
   [[ "$BY" == released && "${MS:-0}" -ge 2500 ]] && ok "releasing the hotkey closed the microphone after ${MS} ms" || bad "capture stop: by=$BY ms=$MS"
   NOAUDIO=$(q "select count(*) from notifications where kind='voice.no_audio'")
   [[ "$NOAUDIO" == 0 ]] && ok "real audio levels arrived from the virtual microphone (no-audio watchdog silent)" || bad "no audio reached the service"
-  sleep 1
+  if [[ $HAVE_MODELS == 1 ]]; then
+    wait_until 60 q_ge "select count(*) from tasks where source='voice'" 1 || true
+    CMD=$(q "select command_text from tasks where source='voice' order by created_at desc limit 1")
+    [[ "${CMD,,}" == *"corporate website"* ]] && ok "spoken command recognised and saved as a voice task: \"$CMD\"" \
+      || bad "spoken command not recognised (got: $CMD)"
+    TURNS=$(q "select count(*) from voice_turns")
+    [[ "${TURNS:-0}" -ge 2 ]] && ok "conversation history recorded ($TURNS turns)" || bad "no conversation history"
+  else
+    echo "SKIP  speech recognition (set JACK_MODELS_DIR with tiny.en and small.en)"
+  fi
+  sleep 3
   import -window root "$OUT/05-after-capture.png"
   xdotool windowactivate --sync "$WIN" 2>/dev/null || true
   xdotool key ctrl+4; sleep 2
@@ -133,10 +163,38 @@ kill -0 "$APP_PID" 2>/dev/null && ok "app still running after window close (tray
 kill -TERM "$APP_PID"; wait "$APP_PID" 2>/dev/null
 wait_until 15 no_services && ok "no service processes after SIGTERM quit" || bad "orphaned service after quit: $(all_service_pids | tr '\n' ' ')"
 
-# 7: hard kill of the app itself
+# 10 + 7: relaunch (wake word pre-enabled when testing voice), then hard-kill the app
+if [[ "${VOICE_E2E:-0}" == 1 && $HAVE_MODELS == 1 ]]; then
+  # Equivalent to the user having turned the wake word on in a previous session.
+  python3 - "$DB" <<'PY'
+import sqlite3, sys, json, datetime
+c = sqlite3.connect(sys.argv[1])
+c.execute("insert or replace into settings(key, value, updated_at) values ('voice', ?, ?)",
+          (json.dumps({"wake_word_enabled": True}), datetime.datetime.now(datetime.UTC).isoformat()))
+c.commit()
+PY
+fi
 start_app
 wait_until 60 bash -c "pgrep -P $APP_PID -f jack-service >/dev/null" || true
 wait_until 60 q_ge "select count(*) from audit_events where action='service.start'" 3 || true
+if [[ "${VOICE_E2E:-0}" == 1 && $HAVE_MODELS == 1 ]]; then
+  wait_until 60 q_ge "select count(*) from audit_events where action='voice.standby.start'" 1 \
+    && ok "wake word standby started after relaunch (setting persisted)" || bad "wake word standby not started"
+  wait_until 15 bash -c "[[ \$(grep -c 'microphone delivering audio' '$OUT/app.log') -ge 1 ]]" || true
+  sleep 4  # models load in the background after start-up
+  WAKES=$(q "select count(*) from audit_events where action='voice.wake'")
+  say "Hey Jack."
+  wait_until 20 q_ge "select count(*) from audit_events where action='voice.wake'" $((WAKES + 1)) \
+    && ok "spoken \"Hey Jack\" detected by the wake word engine" || bad "wake word not detected"
+  sleep 3.5  # JACK says "Yes, I'm listening." (into the same virtual mic: echo suppression)
+  W=$(xdotool search --name "^JACK AI$" | head -1); [[ -n "$W" ]] && import -window root "$OUT/07-wake-listening.png"
+  say "Create a professional company logo."
+  wait_until 60 bash -c "python3 -c \"import sqlite3,sys;sys.exit(0 if sqlite3.connect('$DB').execute(\\\"select count(*) from tasks where source='voice' and lower(command_text) like '%logo%'\\\").fetchone()[0] else 1)\"" \
+    && ok "wake-word command saved as a voice task: \"$(q "select command_text from tasks where lower(command_text) like '%logo%' limit 1")\"" \
+    || bad "wake-word command not recognised"
+  TRIG=$(q "select trigger from voice_sessions order by started_at desc limit 1")
+  [[ "$TRIG" == wake ]] && ok "conversation recorded as a wake-word session" || bad "last session trigger: $TRIG"
+fi
 kill -9 "$APP_PID"; wait "$APP_PID" 2>/dev/null
 wait_until 15 no_services && ok "service shut itself down after the app was SIGKILLed" \
   || bad "orphaned service after app SIGKILL: $(all_service_pids | tr '\n' ' ')"

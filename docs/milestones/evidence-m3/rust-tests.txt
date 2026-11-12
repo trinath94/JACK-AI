@@ -1,0 +1,10 @@
+test supervisor::tests::port_is_loopback_bindable ... ok
+test tests::ptt_shortcut_is_ctrl_shift_space ... ok
+test supervisor::tests::backoff_is_bounded ... ok
+test supervisor::tests::token_is_256_bit_hex_and_unique ... ok
+test tests::tooltip_reflects_state ... ok
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test supervises_restarts_and_authenticates ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 10.40s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s

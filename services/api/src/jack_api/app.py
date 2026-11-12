@@ -11,7 +11,7 @@ import platform
 import socket
 import sys
 import time
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import Annotated, Any
@@ -37,11 +37,16 @@ from jack_api.metrics import SystemMetrics
 from jack_api.notifications import NotificationCentre
 from jack_api.redaction import register_secret
 from jack_api.routes_m2 import router as m2_router
+from jack_api.routes_voice import router as voice_router
 from jack_api.security import LoopbackAuthMiddleware, token_matches
 from jack_api.settings_store import SettingsStore
 from jack_api.tasks import InvalidTransition, TaskNotFound, TaskStatus, TaskStore
+from jack_api.voice.asr import WAKE_MODEL, ModelManager, Recognizer
 from jack_api.voice.audio import AudioBackend, SoundDeviceBackend
 from jack_api.voice.engine import VoiceBlocked, VoiceEngine
+from jack_api.voice.history import VoiceHistory
+from jack_api.voice.tts import TtsBackend, default_tts
+from jack_api.voice.vad import SileroVad, Vad
 from jack_api.ws import Hub, envelope
 
 log = logging.getLogger(__name__)
@@ -61,6 +66,8 @@ class Services:
     notifications: NotificationCentre
     voice: VoiceEngine
     metrics: SystemMetrics
+    models: ModelManager
+    history: VoiceHistory
 
 
 # Task states that deserve a notification (Section 22 alternative/terminal states).
@@ -133,7 +140,9 @@ def _voice_probe(voice: VoiceEngine) -> Any:
     return probe
 
 
-def create_app(settings: Settings, audio_backend: AudioBackend | None = None) -> FastAPI:
+def create_app(settings: Settings, audio_backend: AudioBackend | None = None, *,
+               recognizer: Recognizer | None = None, tts: TtsBackend | None = None,
+               vad_factory: Callable[[], Vad] | None = None) -> FastAPI:
     register_secret(settings.session_token.get_secret_value())
     holder: dict[str, Services] = {}
 
@@ -153,13 +162,34 @@ def create_app(settings: Settings, audio_backend: AudioBackend | None = None) ->
         store = SettingsStore(db)
         backend = audio_backend if audio_backend is not None else SoundDeviceBackend()
         notifications = NotificationCentre(db, hub.publish_threadsafe)
+        tasks = TaskStore(db, audit)
+        models = ModelManager(settings.resolved_models_dir, hub.publish_threadsafe)
+        history = VoiceHistory(db)
+
+        def on_command(text: str) -> tuple[str, str]:
+            task = tasks.create(text, "voice", None, LOCAL_USER)
+            hub.publish_threadsafe("task.created", schemas.TaskOut.model_validate(task)
+                                   .model_dump(mode="json"))
+            return task.id, task.title
+
         voice = VoiceEngine(
             backend, store, audit, hub.publish_threadsafe,
+            recognizer=recognizer if recognizer is not None else models,
+            tts=tts if tts is not None else await asyncio.to_thread(default_tts),
+            vad_factory=vad_factory or SileroVad, history=history, on_command=on_command,
             notify=lambda kind, title, body: notifications.create(kind, title, body,
                                                                   level="warning"))
+        purged = await asyncio.to_thread(history.purge, voice.settings.history_retention_days)
+        if purged:
+            log.info("purged %d voice sessions past retention", purged)
         health.register("voice", _voice_probe(voice))
-        svc = Services(settings, db, audit, TaskStore(db, audit), health, hub, time.monotonic(),
-                       store, notifications, voice, SystemMetrics(settings.data_dir))
+        svc = Services(settings, db, audit, tasks, health, hub, time.monotonic(),
+                       store, notifications, voice, SystemMetrics(settings.data_dir), models,
+                       history)
+        if recognizer is None:
+            # Load downloaded models now so the first command doesn't pause for seconds.
+            for name in {WAKE_MODEL, voice.settings.asr_model}:
+                asyncio.get_running_loop().run_in_executor(None, models.warm, name)
         holder["svc"] = svc
         app.state.svc = svc
         await asyncio.to_thread(audit.record, "service.start", outcome="info",
@@ -308,6 +338,7 @@ def create_app(settings: Settings, audio_backend: AudioBackend | None = None) ->
         return {"valid": r.valid, "checked": r.checked, "first_invalid_seq": r.first_invalid_seq}
 
     app.include_router(m2_router)
+    app.include_router(voice_router)
 
     # ---------------------------------------------------------------- websocket
     @app.websocket("/v1/ws")

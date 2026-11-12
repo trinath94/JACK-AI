@@ -1,11 +1,12 @@
 import { motion, useReducedMotion } from "framer-motion";
 
-export type OrbState = "offline" | "disabled" | "idle" | "listening" | "processing" | "speaking";
+export type OrbState = "offline" | "disabled" | "idle" | "standby" | "listening" | "processing" | "speaking";
 
 const LABEL: Record<OrbState, string> = {
   offline: "Service offline",
   disabled: "Microphone off",
   idle: "Ready",
+  standby: "Listening for \u201cJack\u201d",
   listening: "Listening",
   processing: "Processing",
   speaking: "Speaking",
@@ -15,7 +16,7 @@ const LABEL: Record<OrbState, string> = {
  * Central JACK orb. `level` (0..1) is the live microphone input level while listening, so
  * the orb visibly responds to the user's voice.
  */
-export function VoiceOrb({ state, level = 0, size = 160 }: { state: OrbState; level?: number; size?: number }) {
+export function VoiceOrb({ state, level = 0, size = 160, woke = false }: { state: OrbState; level?: number; size?: number; woke?: boolean }) {
   const reduce = useReducedMotion();
   const listening = state === "listening";
   const dim = state === "offline" || state === "disabled";
@@ -57,7 +58,7 @@ export function VoiceOrb({ state, level = 0, size = 160 }: { state: OrbState; le
             width: size,
             height: size,
             background: "radial-gradient(circle at 40% 35%, #e0f2fe 0%, var(--accent) 45%, #1e1b4b 100%)",
-            boxShadow: `0 0 ${60 + level * 80}px -10px var(--accent)`,
+            boxShadow: `0 0 ${60 + level * 80 + (woke ? 60 : 0)}px -10px var(--accent)`,
             filter: dim ? "grayscale(1)" : undefined,
             opacity: dim ? 0.5 : 1,
           }}

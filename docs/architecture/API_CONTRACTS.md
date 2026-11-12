@@ -60,14 +60,27 @@ TaskEvent = { "seq": 1, "from_status": null, "to_status": "RECEIVED", "reason": 
 | GET | `/v1/audit` | `?limit=100&offset=0` | `{ items: AuditEvent[], total }` |
 | GET | `/v1/audit/verify` | – | `{ "valid": bool, "checked": int, "first_invalid_seq": int|null }` |
 
-### Voice — M2 (capture + level only; ASR/wake word/TTS report unavailable until M3)
+### Voice — M2 + M3
 | Method | Path | Body | Response |
 |---|---|---|---|
 | GET | `/v1/voice/status` | – | `{ state, settings, capabilities{capture, capture_detail, wake_word, speech_recognition, speech_synthesis, pending_milestone}, listening_since_s }` |
 | GET | `/v1/voice/devices` | – | `[{ id: "<host api>:<name>", name, host_api, is_default, channels }]` |
 | PATCH | `/v1/voice/settings` | any of `wake_word_enabled, wake_word_sensitivity (0.1–0.9), input_device_id, muted, privacy_mode, max_listen_s (5–120)` | `VoiceSettings` · 409 `unknown_device` |
 | POST | `/v1/voice/ptt/start` | `{ "source": "ui"|"hotkey"|"tray" }` | `VoiceStatus` · 409 `muted` / `privacy_mode` / `unknown_device` / `audio_unavailable` |
-| POST | `/v1/voice/ptt/stop` | – | `{ captured_ms, transcribed:false, transcript:null, detail, stopped_by }` or `null` |
+| POST | `/v1/voice/ptt/stop` | – | `{ captured_ms, stopped_by, processing: true }` or `null`; the result arrives as `voice.utterance` |
+| GET | `/v1/voice/voices` | – | `[{ id, name, language }]` (Windows SAPI voices) |
+| POST | `/v1/voice/speak` | `{ text (1–500) }` | 202 — interrupts with push-to-talk or `/stop-speaking` |
+| POST | `/v1/voice/stop-speaking` | – | `{ stopped }` |
+| GET | `/v1/voice/models` | – | `[{ name, size_mb, purpose, status: not_downloaded|downloading|ready|error, downloaded_mb, error }]` |
+| POST | `/v1/voice/models/{name}/download` | – | 202 `{ started }` — the only way models are fetched |
+| DELETE | `/v1/voice/models/{name}` | – | 204 |
+| GET / DELETE | `/v1/voice/history` | `?limit&offset` | `{ items: [{ id, trigger, started_at, ended_at, task_id, turns:[{role,text,created_at}] }], total }` / `{ deleted }` |
+
+Settings added in M3: `asr_model`, `end_of_speech_ms`, `tts_enabled`, `tts_voice_id`, `tts_rate`,
+`keep_history`, `history_retention_days`. States added: `standby` (listening only for the wake word).
+
+WebSocket topics added in M3: `voice.wake {transcript}`, `voice.reply {text}`, `voice.models [...]`;
+`voice.utterance` is now `{ trigger, captured_ms, transcribed, transcript, reply, stopped_by, task_id }`.
 
 ### Notifications — M2
 | GET | `/v1/notifications` | `?unread_only=&limit=&offset=` | `{ items: Notification[], total, unread }` |
@@ -80,7 +93,6 @@ TaskEvent = { "seq": 1, "from_status": null, "to_status": "RECEIVED", "reason": 
 ### Planned (contracts drafted, not implemented)
 | Area | Routes | Milestone |
 |---|---|---|
-| Voice (ASR, wake word, TTS) | `GET /v1/voice/voices`, transcripts in `voice.utterance`, `voice.wake` events | M3 |
 | Providers | `GET/POST /v1/providers`, `POST /v1/providers/{id}/test`, `GET /v1/usage` | M4 |
 | Requirements | `POST /v1/tasks/{id}/answers`, `GET /v1/tasks/{id}/spec`, `POST /v1/tasks/{id}/spec/approve` | M5 |
 | Approvals | `GET /v1/approvals?status=pending`, `POST /v1/approvals/{id}/decide` (user re-auth for privileged) | M6 |

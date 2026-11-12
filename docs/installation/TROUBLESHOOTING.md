@@ -12,6 +12,12 @@
 | Voice component shows `degraded – No microphone found` | Windows reports no capture device | Connect a microphone, then use **Refresh** on the Voice page |
 | "Push-to-talk shortcut Ctrl+Shift+Space is unavailable" | Another app registered the same hotkey | Close that app or change its hotkey, then restart JACK. The on-screen button works regardless |
 | Hold-to-talk stops by itself | Maximum listening time reached | Raise it on the Voice page (up to 120 s) |
+| JACK says "I can't understand speech yet" | No speech model is downloaded | Voice page → Speech models → download `small.en` (or `base.en` on slower PCs), plus `tiny.en` for the wake word |
+| Model download shows an error | No internet access to huggingface.co, or a proxy or firewall blocks it | Allow `huggingface.co` and `*.hf.co`, then press **Retry**. Recognition itself works offline once the download completes |
+| "Jack" is not recognised | Wake-word sensitivity too low, a noisy room, or an accent the small wake model struggles with | Raise the sensitivity, speak a little slower ("Hey… Jack"), or use push-to-talk. See the evaluation in the Milestone 3 report |
+| JACK wakes up when nobody called it | A sentence starting with a similar word ("Jackson…") | Lower the sensitivity. The wake word only triggers at the start of an utterance |
+| No spoken replies | Spoken replies are off, no Windows voices are installed, or there is no audio output | Voice page → Spoken replies → Test voice. Windows Settings → Time & language → Speech → add voices |
+| First command after start-up is slow | Models are still loading | Wait a few seconds after JACK starts; later commands are faster |
 
 ## Collecting diagnostics
 

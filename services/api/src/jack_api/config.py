@@ -46,6 +46,7 @@ class Settings(BaseSettings):
     port: int = Field(default=8765, ge=1, le=65535)
     data_dir: Path = Field(default_factory=default_data_dir)
     database_url: str | None = None
+    models_dir: Path | None = None
     dev_mode: bool = False
     exit_with_parent: bool = False
     supervisor_pid: int | None = None
@@ -73,6 +74,10 @@ class Settings(BaseSettings):
         if self.database_url:
             return self.database_url
         return f"sqlite:///{(self.data_dir / 'jack.db').as_posix()}"
+
+    @cached_property
+    def resolved_models_dir(self) -> Path:
+        return self.models_dir or self.data_dir.parent / "models"
 
     @cached_property
     def log_dir(self) -> Path:

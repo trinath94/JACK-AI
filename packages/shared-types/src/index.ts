@@ -23,7 +23,22 @@ export type VoiceSettings = Schemas["VoiceSettings"];
 export type VoiceSettingsPatch = Schemas["VoiceSettingsPatch"];
 export type VoiceCapabilities = Schemas["VoiceCapabilities"];
 export type AudioDevice = Schemas["AudioDeviceOut"];
-export type PttResult = Schemas["PttResultOut"];
+export type PttStopped = Schemas["PttStoppedOut"];
+export type SpeechModel = Schemas["SpeechModelOut"];
+export type TtsVoice = Schemas["TtsVoiceOut"];
+export type VoiceSession = Schemas["SessionOut"];
+export type VoiceHistory = Schemas["HistoryOut"];
+
+/** Payload of the `voice.utterance` event: one completed voice interaction. */
+export interface Utterance {
+  trigger: "ptt" | "wake";
+  captured_ms: number;
+  transcribed: boolean;
+  transcript: string | null;
+  reply: string;
+  stopped_by: string;
+  task_id: string | null;
+}
 export type Notification = Schemas["NotificationOut"];
 export type NotificationList = Schemas["NotificationList"];
 export type SystemMetrics = Schemas["SystemMetricsOut"];
@@ -42,7 +57,10 @@ export type WsEvent =
   | { type: "event"; topic: "voice.state"; ts: string; data: { state: VoiceState } }
   | { type: "event"; topic: "voice.level"; ts: string; data: { level: number } }
   | { type: "event"; topic: "voice.settings"; ts: string; data: VoiceSettings }
-  | { type: "event"; topic: "voice.utterance"; ts: string; data: PttResult }
+  | { type: "event"; topic: "voice.utterance"; ts: string; data: Utterance }
+  | { type: "event"; topic: "voice.wake"; ts: string; data: { transcript: string } }
+  | { type: "event"; topic: "voice.reply"; ts: string; data: { text: string } }
+  | { type: "event"; topic: "voice.models"; ts: string; data: SpeechModel[] }
   | { type: "event"; topic: "voice.error"; ts: string; data: { code: string; message: string } }
   | { type: "event"; topic: "notification.created"; ts: string; data: Notification }
   | { type: "event"; topic: "notification.read"; ts: string; data: { ids: string[] } }
