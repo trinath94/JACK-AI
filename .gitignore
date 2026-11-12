@@ -1,0 +1,33 @@
+# Node / frontend
+node_modules/
+dist/
+*.tsbuildinfo
+# Rust / Tauri
+target/
+apps/desktop/src-tauri/binaries/
+apps/desktop/src-tauri/gen/
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+build/
+*.spec
+# Local data / secrets
+*.db
+*.db-wal
+*.db-shm
+.env
+.env.*
+!.env.example
+*.pem
+*.pfx
+*.key
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
