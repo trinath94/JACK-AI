@@ -1,0 +1,11 @@
+{
+  "name": "jack-ai",
+  "private": true,
+  "packageManager": "pnpm@10.28.0",
+  "scripts": {
+    "dev": "pnpm --filter @jack/desktop tauri dev",
+    "build:sidecar": "uv run --project services/api python scripts/build_sidecar.py",
+    "gen:types": "uv run --project services/api python scripts/gen_types.py",
+    "test": "pnpm -r test"
+  }
+}

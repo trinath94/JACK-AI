@@ -1,0 +1,129 @@
+import type {
+  ApiError,
+  AuditEvent,
+  BackendConnection,
+  AudioDevice,
+  HealthReport,
+  NotificationList,
+  PttResult,
+  SystemInfo,
+  SystemMetrics,
+  Task,
+  TaskDetail,
+  TaskList,
+  TaskStatus,
+  VoiceSettings,
+  VoiceSettingsPatch,
+  VoiceStatus,
+} from "@jack/shared-types";
+
+export class ApiRequestError extends Error {
+  constructor(
+    readonly status: number,
+    readonly code: string,
+    message: string,
+  ) {
+    super(message);
+    this.name = "ApiRequestError";
+  }
+}
+
+/** Authenticated client for the loopback JACK service. The token lives only in memory. */
+export class JackApi {
+  constructor(
+    private readonly conn: BackendConnection,
+    private readonly fetchImpl: typeof fetch = (...a) => fetch(...a),
+  ) {}
+
+  private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
+    const res = await this.fetchImpl(`${this.conn.baseUrl}${path}`, {
+      method,
+      headers: {
+        Authorization: `Bearer ${this.conn.token}`,
+        ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
+      },
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+    if (res.status === 204) return undefined as T;
+    if (!res.ok) {
+      let code = "http_error";
+      let message = `HTTP ${res.status}`;
+      try {
+        const err = (await res.json()) as ApiError;
+        code = err.error.code;
+        message = err.error.message;
+      } catch {
+        /* non-JSON error body */
+      }
+      throw new ApiRequestError(res.status, code, message);
+    }
+    return (await res.json()) as T;
+  }
+
+  health() {
+    return this.request<HealthReport>("GET", "/v1/health");
+  }
+  systemInfo() {
+    return this.request<SystemInfo>("GET", "/v1/system/info");
+  }
+  listTasks(params: { status?: TaskStatus; limit?: number; offset?: number } = {}) {
+    const q = new URLSearchParams();
+    if (params.status) q.set("status", params.status);
+    q.set("limit", String(params.limit ?? 50));
+    q.set("offset", String(params.offset ?? 0));
+    return this.request<TaskList>("GET", `/v1/tasks?${q.toString()}`);
+  }
+  getTask(id: string) {
+    return this.request<TaskDetail>("GET", `/v1/tasks/${encodeURIComponent(id)}`);
+  }
+  createTask(commandText: string, source: "text" | "voice" = "text") {
+    return this.request<Task>("POST", "/v1/tasks", { command_text: commandText, source });
+  }
+  taskAction(id: string, action: "pause" | "resume" | "cancel", reason?: string) {
+    return this.request<Task>("POST", `/v1/tasks/${encodeURIComponent(id)}/${action}`, {
+      reason: reason ?? null,
+    });
+  }
+  audit(limit = 100, offset = 0) {
+    return this.request<{ items: AuditEvent[]; total: number }>(
+      "GET",
+      `/v1/audit?limit=${limit}&offset=${offset}`,
+    );
+  }
+  voiceStatus() {
+    return this.request<VoiceStatus>("GET", "/v1/voice/status");
+  }
+  voiceDevices() {
+    return this.request<AudioDevice[]>("GET", "/v1/voice/devices");
+  }
+  updateVoiceSettings(patch: VoiceSettingsPatch) {
+    return this.request<VoiceSettings>("PATCH", "/v1/voice/settings", patch);
+  }
+  pttStart(source: "ui" | "hotkey" | "tray" = "ui") {
+    return this.request<VoiceStatus>("POST", "/v1/voice/ptt/start", { source });
+  }
+  pttStop() {
+    return this.request<PttResult | null>("POST", "/v1/voice/ptt/stop");
+  }
+  notifications(unreadOnly = false, limit = 50) {
+    return this.request<NotificationList>(
+      "GET",
+      `/v1/notifications?unread_only=${unreadOnly}&limit=${limit}`,
+    );
+  }
+  markNotificationRead(id: string) {
+    return this.request<void>("POST", `/v1/notifications/${encodeURIComponent(id)}/read`);
+  }
+  markAllNotificationsRead() {
+    return this.request<{ marked: number }>("POST", "/v1/notifications/read-all");
+  }
+  metrics() {
+    return this.request<SystemMetrics>("GET", "/v1/system/metrics");
+  }
+  verifyAudit() {
+    return this.request<{ valid: boolean; checked: number; first_invalid_seq: number | null }>(
+      "GET",
+      "/v1/audit/verify",
+    );
+  }
+}

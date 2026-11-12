@@ -1,0 +1,17 @@
+
+> @jack/desktop@0.1.0 test /home/user/jack-ai/apps/desktop
+> vitest run -- --reporter=verbose
+
+
+ RUN  v5.1.0 /home/user/jack-ai/apps/desktop
+
+
+ Test Files  3 passed (3)
+      Tests  14 passed (14)
+   Start at  15:57:20
+   Duration  2.41s (environment 47%, setup 34%, tests 8%, transform 6%, import 5%)
+
+
+> @jack/desktop@0.1.0 typecheck /home/user/jack-ai/apps/desktop
+> tsc --noEmit -p tsconfig.json
+

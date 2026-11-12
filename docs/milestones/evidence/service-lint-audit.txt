@@ -1,0 +1,6 @@
+All checks passed!
+Success: no issues found in 15 source files
+No known vulnerabilities found
+Name     Skip Reason
+-------- -------------------------------
+jack-api distribution marked as editable

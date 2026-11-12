@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-ptt-shortcut"
+description = "Enables the ptt_shortcut command without any pre-configured scope."
+commands.allow = ["ptt_shortcut"]
+
+[[permission]]
+identifier = "deny-ptt-shortcut"
+description = "Denies the ptt_shortcut command without any pre-configured scope."
+commands.deny = ["ptt_shortcut"]

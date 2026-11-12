@@ -1,0 +1,13 @@
+PASS  supervisor started bundled sidecar (pid 30914)
+PASS  service started and migrated the database
+PASS  main window shown
+PASS  typed command persisted as task (RECEIVED)
+PASS  service restarted after SIGKILL (old 30914, new 31090)
+PASS  audit records 2 service starts
+PASS  old service tree exited (no orphan after crash)
+PASS  app still running after window close (tray)
+PASS  no service processes after SIGTERM quit
+PASS  service shut itself down after the app was SIGKILLed
+PASS  audit chain links intact (linked 7 events)
+----
+passed=11 failed=0

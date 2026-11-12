@@ -1,0 +1,68 @@
+[project]
+name = "jack-api"
+version = "0.1.0"
+description = "JACK AI local service: authenticated loopback API, health, tasks, audit"
+requires-python = ">=3.12"
+license = { text = "Proprietary" }
+dependencies = [
+    "fastapi==0.162.5",
+    "uvicorn[standard]==0.54.0",
+    "pydantic==2.14.3",
+    "pydantic-settings==2.16.2",
+    "sqlalchemy==2.1.8",
+    "alembic==1.20.1",
+    "psutil==7.2.2",
+    "sounddevice==0.5.6",
+]
+
+[project.optional-dependencies]
+postgres = ["psycopg[binary]==3.3.9"]
+
+[dependency-groups]
+dev = [
+    "pytest==9.2.0",
+    "httpx==0.28.1",
+    "ruff==0.17.4",
+    "mypy==2.4.1",
+    "types-psutil==7.2.2.20261111",
+    "pip-audit==2.10.1",
+    "pyinstaller==6.22.3",
+    "psycopg[binary]==3.3.9",
+]
+
+[project.scripts]
+jack-service = "jack_api.__main__:main"
+
+[build-system]
+requires = ["hatchling==1.33.0"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/jack_api"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "S", "ASYNC"]
+ignore = ["S101"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S105", "S106"]
+
+[tool.mypy]
+strict = true
+python_version = "3.12"
+plugins = ["pydantic.mypy"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff.lint.isort]
+known-first-party = ["jack_api", "conftest"]
+
+[[tool.mypy.overrides]]
+module = ["sounddevice"]
+ignore_missing_imports = true
