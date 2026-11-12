@@ -1,0 +1,1 @@
+"""JACK AI local service."""
