@@ -1,0 +1,6 @@
+Real api.anthropic.com check with a deliberately invalid key (frozen sidecar, no test override), 2026-11-12T20:49:04Z:
+POST /v1/ai/anthropic/test ->
+{"ok":false,"at":"2026-11-12T20:49:04.791589+00:00","model":null,"latency_ms":null,"reply":null,"error":"The Anthropic API key was rejected","error_code":"auth"}
+GET /v1/ai/anthropic/models ->
+{"error":{"code":"ai_auth","message":"The Anthropic API key was rejected","request_id":null}}
+Dummy key present in service log: 0

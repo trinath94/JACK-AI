@@ -90,10 +90,24 @@ WebSocket topics added in M3: `voice.wake {transcript}`, `voice.reply {text}`, `
 ### System metrics — M2
 | GET | `/v1/system/metrics` | – | `{ cpu_percent, cpu_count, memory_*, disk_*, service_rss_bytes, service_cpu_percent, uptime_s }` |
 
+### AI providers — M4
+| Method | Path | Body | Response |
+|---|---|---|---|
+| GET | `/v1/ai/status` | – | credential store (kind, secure, available), anthropic (configured, key_hint, settings, last_test), claude_code (settings, detected, last_test), routing, fallback, limits, prices_as_of, month summary |
+| PUT / DELETE | `/v1/ai/anthropic/key` | `{ api_key }` | 204 · 422 `invalid_api_key` · 409 `credential_store_unavailable` — the key is never returned |
+| PATCH | `/v1/ai/settings` | any of `anthropic{model, effort, timeout_s, max_retries, refusal_fallback}`, `claude_code{enabled, binary, model, timeout_s}`, `routing{reasoning, coding}`, `fallback{enabled}`, `limits{monthly_usd, per_task_usd, per_project_usd, alert_pct}` | settings |
+| GET | `/v1/ai/anthropic/models` | `?refresh` | `[{ id, display_name, max_input_tokens, max_tokens, price_known }]` |
+| POST | `/v1/ai/{anthropic|claude_code}/test` | – | `{ ok, at, model, latency_ms, reply, error, error_code }` |
+| POST | `/v1/ai/claude-code/detect` | – | `{ installed, binary, version, logged_in, auth_method, api_provider, detail }` |
+| POST | `/v1/ai/complete` | `{ prompt, provider?, system?, max_tokens?, task_id? }` | `{ text, provider, model_served, stop_reason, refusal_category, fallbacks, usage[], billing_kind, cost_usd, reported_cost_usd, latency_ms }` · 402 `ai_budget` · 409 `ai_not_configured` · 401/429/502/504 `ai_*` |
+| GET | `/v1/ai/usage` | `?month=YYYY-MM` | `{ api, claude_code, by_model, by_day, monthly_limit_usd, limit_used_pct }` |
+| GET | `/v1/ai/usage/records` | `?limit&offset` | `{ items, total }` |
+
+WebSocket topics added in M4: `ai.status { changed }`, `ai.usage { provider, cost_usd | failed }`.
+
 ### Planned (contracts drafted, not implemented)
 | Area | Routes | Milestone |
 |---|---|---|
-| Providers | `GET/POST /v1/providers`, `POST /v1/providers/{id}/test`, `GET /v1/usage` | M4 |
 | Requirements | `POST /v1/tasks/{id}/answers`, `GET /v1/tasks/{id}/spec`, `POST /v1/tasks/{id}/spec/approve` | M5 |
 | Approvals | `GET /v1/approvals?status=pending`, `POST /v1/approvals/{id}/decide` (user re-auth for privileged) | M6 |
 | Projects/Memory | `/v1/projects`, `/v1/projects/{id}/search` | M8 |

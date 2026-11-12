@@ -29,6 +29,8 @@ The desktop app sets these for you. They only matter when running the service by
 | `JACK_METRICS_INTERVAL_S` | `3` | System metrics push period (only while the UI is connected) |
 | `JACK_SUPERVISOR_PID` | set by the app | The service exits if this process disappears (POSIX) |
 | `JACK_MODELS_DIR` | sibling `models` folder | Where speech models are downloaded and loaded from |
+| `JACK_ANTHROPIC_BASE_URL` | unset | **Tests only.** Points the Anthropic provider at a local fake API; loopback URLs only |
+| `JACK_INSECURE_TEST_CREDENTIALS` | unset | **Tests only.** `1` uses an in-memory, non-persistent key store; the UI labels it "Test store — not secure" |
 
 ## In-app settings
 
@@ -39,6 +41,8 @@ The desktop app sets these for you. They only matter when running the service by
 | Voice Assistant | Microphone, mute, privacy mode, maximum push-to-talk time (5–120 s), wake word on/off and sensitivity, command model (`tiny.en` / `base.en` / `small.en`), end-of-speech pause, spoken replies on/off, voice, speed, keep history, retention days | Service database, `settings` table, key `voice` |
 | Voice Assistant → Speech models | Downloaded Whisper models | `%LOCALAPPDATA%\ai.jack.desktop\models\` (override: `JACK_MODELS_DIR`) |
 | Tray | Mute microphone | Same as above |
+| Usage and Billing | Anthropic model, effort, timeout, retries, refusal fallback; Claude Code on/off, path, model; routing; provider fallback; spending limits and alert thresholds | Service database, `settings` table, key `ai` |
+| Usage and Billing → Anthropic API key | The API key | **Windows Credential Manager** (service `JACK AI`, name `anthropic:api_key`); never in the database or logs |
 
 The push-to-talk hotkey is fixed to **Ctrl+Shift+Space** in this version.
 
@@ -46,4 +50,4 @@ Microphones are stored by host API and name (for example `Windows WASAPI:Headset
 not by index, so the selection survives reboots. If the selected microphone is unplugged, push-to-talk
 reports it instead of silently using another device. Choose **System default** to follow Windows.
 
-AI provider, GitHub and server settings will be added in later milestones (see `docs/ROADMAP.md`).
+GitHub and server settings will be added in later milestones (see `docs/ROADMAP.md`).

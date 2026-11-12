@@ -29,10 +29,10 @@ migration of the milestone noted.
 | `task_events` | id, task_id, seq, from_status, to_status, reason, actor, occurred_at | **M1** |
 | `settings` | key, value JSON, updated_at | **M1** |
 | `users` | id, display_name, role(owner/operator/viewer), created_at | M6 |
-| `ai_providers` | id, kind(anthropic_api/claude_code/openai_image/…), name, base_url, credential_ref, enabled, fallback_order | M4 |
+| `ai_providers` | id, kind, name, credential_ref, enabled, fallback_order | M6 (M4 keeps provider settings as typed JSON under `settings.ai`; credentials are referenced as `anthropic:api_key` in the credential store) |
 | `ai_models` | id, provider_id, model_id, input_price_per_mtok, output_price_per_mtok, context_window | M4 |
-| `usage_records` | id, provider_id, model_id, task_id?, project_id?, billing_kind(api/subscription), input_tokens, output_tokens, cost_usd, succeeded, occurred_at | M4 |
-| `spend_limits` | id, scope(global/project/task), scope_id?, period, limit_usd, alert_pct | M4 |
+| `usage_records` | id, occurred_at, provider_id, billing_kind(api/claude_code), model_requested, model (that served the part), purpose, task_id?, project_id?, input/output/cache_read/cache_write tokens, cost_usd (nullable), cost_source(estimated/reported/unknown/none), succeeded, error_code, latency_ms, request_id — one row per model that served part of a call | **M4** (migration 0004) |
+| `spend_limits` | id, scope(global/project/task), scope_id?, period, limit_usd, alert_pct | M6 (M4: `settings.ai.limits`; alerts sent tracked in `settings.ai.alerts_sent`) |
 | `conversations` | id, task_id?, project_id?, summary, created_at | M5 |
 | `conversation_turns` | id, conversation_id, role, content, created_at | M5 |
 | `requirement_specs` | id, task_id, category, spec JSON, status(draft/approved), approved_by?, approved_at? | M5 |

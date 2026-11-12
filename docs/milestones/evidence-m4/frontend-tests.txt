@@ -1,0 +1,48 @@
+
+ RUN  v5.1.0 /home/user/jack-ai/apps/desktop
+
+ ✓ src/components/ui.test.ts > usd > shows enough places for single-request amounts 14ms
+ ✓ src/components/ui.test.ts > usd > uses cents for normal amounts and dashes for unknown 1ms
+ ✓ src/components/ui.test.ts > formatBytes > scales units 1ms
+ ✓ src/lib/socket.test.ts > JackSocket > authenticates with the first frame and reports open on hello 8ms
+ ✓ src/lib/socket.test.ts > JackSocket > reconnects with backoff after the connection drops 2ms
+ ✓ src/lib/socket.test.ts > JackSocket > does not reconnect after stop 1ms
+ ✓ src/lib/socket.test.ts > JackSocket > ignores malformed frames 1ms
+ ✓ src/App.test.tsx > App > renders all 16 Section 21 navigation entries 126ms
+ ✓ src/App.test.tsx > App > shows live health once the service connects 98ms
+ ✓ src/App.test.tsx > App > shows real wake word and speech recognition status 83ms
+ ✓ src/lib/api.test.ts > JackApi > sends the bearer token and JSON body 5ms
+ ✓ src/lib/api.test.ts > JackApi > parses the error envelope 1ms
+ ✓ src/lib/api.test.ts > JackApi > encodes task ids and list params 1ms
+ ✓ src/App.test.tsx > App > creates a task from a typed command and shows it from the live feed 154ms
+ ✓ src/App.test.tsx > App > marks unimplemented sections honestly 47ms
+ ✓ src/App.test.tsx > App > reflects supervisor failures and turns the orb offline 63ms
+ ✓ src/App.test.tsx > App > supports keyboard shortcuts, including Ctrl+K and the ? dialog 103ms
+ ✓ src/App.test.tsx > Voice > push-to-talk opens on press, closes on release, and the orb follows the level 64ms
+ ✓ src/App.test.tsx > Voice > disables push-to-talk while muted and explains why 45ms
+ ✓ src/App.test.tsx > Voice > shows service errors from push-to-talk 57ms
+ ✓ src/App.test.tsx > Voice > shows errors raised by the native hotkey 33ms
+ ✓ src/App.test.tsx > Voice > surfaces a microphone that delivers no audio 33ms
+ ✓ src/App.test.tsx > Voice > syncs mute state to the tray 34ms
+ ✓ src/App.test.tsx > Voice > voice page saves microphone, mute and privacy settings 68ms
+ ✓ src/App.test.tsx > Voice > voice page manages models, wake word, replies and history 402ms
+ ✓ src/App.test.tsx > Voice > shows the standby state when the wake word is listening 75ms
+ ✓ src/App.test.tsx > Notifications, metrics, settings > notification centre shows unread count, live arrivals, and marks read 107ms
+ ✓ src/App.test.tsx > Notifications, metrics, settings > renders live system metrics 55ms
+ ✓ src/App.test.tsx > Notifications, metrics, settings > toggles start with Windows 32ms
+ ✓ src/App.test.tsx > Notifications, metrics, settings > switches to light theme 18ms
+ ✓ src/App.test.tsx > Usage and Billing (M4) > stores an API key without ever showing it back, then tests the connection 97ms
+ ✓ src/App.test.tsx > Usage and Billing (M4) > separates API spend from Claude Code usage and saves limits 76ms
+ ✓ src/App.test.tsx > Usage and Billing (M4) > detects Claude Code and keeps provider fallback opt-in 95ms
+ ✓ src/App.test.tsx > Usage and Billing (M4) > test console shows the answer with model, tokens and cost 79ms
+ ✓ src/App.test.tsx > Usage and Billing (M4) > home shows Claude as not configured instead of a fake status 55ms
+
+ Test Files  4 passed (4)
+      Tests  35 passed (35)
+   Start at  20:48:25
+   Duration  3.20s (tests 41%, environment 39%, setup 11%, import 6%, transform 2%)
+
+
+> @jack/desktop@0.1.0 typecheck /home/user/jack-ai/apps/desktop
+> tsc --noEmit -p tsconfig.json
+

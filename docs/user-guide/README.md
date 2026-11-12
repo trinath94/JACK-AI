@@ -1,4 +1,4 @@
-# User Guide (0.1.0 developer preview — Milestone 3)
+# User Guide (0.1.0 developer preview — Milestone 4)
 
 ## What works today
 
@@ -21,6 +21,19 @@
 - **Voice Assistant settings**: microphone, mute, privacy mode, push-to-talk limit;
   wake word on or off and sensitivity; command model (accurate `small.en` or faster `base.en` / `tiny.en`);
   how long a pause ends a command; spoken replies, voice and speed; conversation history.
+- **Usage and Billing** (Ctrl+5): connect Claude.
+  - **Anthropic API**: paste an API key from console.anthropic.com. It's stored in Windows Credential
+    Manager and only a short hint is ever shown again. Choose the model and effort, then press **Test connection**.
+    This is pay-as-you-go API billing, separate from a Claude Pro or Max subscription.
+  - **Claude Code**: if Claude Code is installed and signed in (with a Claude plan or an API key), turn it on and
+    press **Detect**. JACK runs Claude Code but never reads its sign-in details. Its usage is shown separately
+    and never counted as API spend.
+  - **Spending limits**: monthly, per task and per project (from Milestone 8), with alerts at 50/80/100% by default.
+    JACK refuses API requests once a limit is reached.
+  - **Fallback** to the other provider is off unless you turn it on.
+  - **Test console**: ask Claude something and see the answer, the model, tokens and the estimated cost.
+  > JACK doesn't yet use Claude for your voice or typed commands; that starts with requirement
+  > discovery in Milestone 5.
 - **Notification centre** (bell icon): tasks that finish, fail, are cancelled or need input;
   components that degrade or recover; a microphone that opens but delivers no audio.
 - **Active Tasks**: every task with its full timeline. Pause, resume and cancel are recorded permanently.
@@ -35,7 +48,7 @@
 |---|---|
 | Ctrl+Shift+Space (hold) | Push-to-talk, anywhere in Windows |
 | Ctrl+K | Type a command |
-| Ctrl+1 / 2 / 3 / 4 | Home / Active Tasks / Security / Voice Assistant |
+| Ctrl+1 / 2 / 3 / 4 / 5 | Home / Active Tasks / Security / Voice Assistant / Usage and Billing |
 | Ctrl+, | Settings |
 | Ctrl+B | Toggle compact sidebar |
 | ? | Show all shortcuts |
@@ -56,6 +69,6 @@ If another application already uses Ctrl+Shift+Space, JACK shows an error and th
 
 ## Not available yet
 
-Claude integration (M4); requirement discovery: JACK asking follow-up questions (M5); approvals (M6);
+Requirement discovery: JACK asking follow-up questions, using Claude (M5); approvals (M6);
 agents and task execution (M7); GitHub (M9); servers (M10); deployments (M13); creative studio (M14).
 Each one is labelled in the app with its milestone.
