@@ -26,10 +26,22 @@ from jack_api import schemas
 from jack_api.audit import AuditLog
 from jack_api.config import VERSION, Settings
 from jack_api.db import Database, Device, utcnow
-from jack_api.health import HealthRegistry, api_probe, database_probe, disk_probe
+from jack_api.health import (
+    HealthRegistry,
+    ProbeResult,
+    api_probe,
+    database_probe,
+    disk_probe,
+)
+from jack_api.metrics import SystemMetrics
+from jack_api.notifications import NotificationCentre
 from jack_api.redaction import register_secret
+from jack_api.routes_m2 import router as m2_router
 from jack_api.security import LoopbackAuthMiddleware, token_matches
+from jack_api.settings_store import SettingsStore
 from jack_api.tasks import InvalidTransition, TaskNotFound, TaskStatus, TaskStore
+from jack_api.voice.audio import AudioBackend, SoundDeviceBackend
+from jack_api.voice.engine import VoiceBlocked, VoiceEngine
 from jack_api.ws import Hub, envelope
 
 log = logging.getLogger(__name__)
@@ -45,6 +57,21 @@ class Services:
     health: HealthRegistry
     hub: Hub
     started_at: float
+    store: SettingsStore
+    notifications: NotificationCentre
+    voice: VoiceEngine
+    metrics: SystemMetrics
+
+
+# Task states that deserve a notification (Section 22 alternative/terminal states).
+NOTIFY_TASK_STATES: dict[str, tuple[str, str]] = {
+    "COMPLETED": ("success", "Task completed"),
+    "FAILED": ("error", "Task failed"),
+    "CANCELLED": ("info", "Task cancelled"),
+    "ROLLED_BACK": ("warning", "Task rolled back"),
+    "WAITING_FOR_INFORMATION": ("warning", "JACK needs information"),
+    "WAITING_FOR_APPROVAL": ("warning", "Approval required"),
+}
 
 
 def _error(status: int, code: str, message: str) -> JSONResponse:
@@ -65,6 +92,7 @@ def _register_device(db: Database) -> None:
 
 
 async def _health_loop(svc: Services) -> None:
+    previous: dict[str, str] = {}
     while True:
         results, changed = await svc.health.check()
         if changed:
@@ -72,10 +100,40 @@ async def _health_loop(svc: Services) -> None:
                 "status": svc.health.overall(results),
                 "components": svc.health.as_dicts(results),
             })
+            for r in results:
+                before = previous.get(r.name)
+                if before is None or before == r.status:
+                    continue  # first observation or no change: not news
+                if r.status == "healthy":
+                    level, title = "success", f"{r.name.capitalize()} recovered"
+                else:
+                    level = "error" if r.status == "unhealthy" else "warning"
+                    title = f"{r.name.capitalize()} is {r.status}"
+                await asyncio.to_thread(svc.notifications.create, "health", title, r.detail,
+                                        level=level)  # type: ignore[arg-type]
+        previous = {r.name: r.status for r in results}
         await asyncio.sleep(svc.settings.health_interval_s)
 
 
-def create_app(settings: Settings) -> FastAPI:
+async def _metrics_loop(svc: Services) -> None:
+    while True:
+        if svc.hub.count:
+            await svc.hub.broadcast("system.metrics", await asyncio.to_thread(svc.metrics.snapshot))
+        await asyncio.sleep(svc.settings.metrics_interval_s)
+
+
+def _voice_probe(voice: VoiceEngine) -> Any:
+    async def probe() -> ProbeResult:
+        caps = await asyncio.to_thread(voice.capabilities)
+        if not caps.capture:
+            return ProbeResult("degraded", caps.capture_detail or "microphone unavailable")
+        n = len(await asyncio.to_thread(voice.devices))
+        return ProbeResult("healthy", f"{n} input device{'s' if n != 1 else ''}")
+
+    return probe
+
+
+def create_app(settings: Settings, audio_backend: AudioBackend | None = None) -> FastAPI:
     register_secret(settings.session_token.get_secret_value())
     holder: dict[str, Services] = {}
 
@@ -92,19 +150,28 @@ def create_app(settings: Settings) -> FastAPI:
         health.register("disk", disk_probe(settings.data_dir))
         hub = Hub()
         hub.loop = asyncio.get_running_loop()
-        svc = Services(settings, db, audit, TaskStore(db, audit), health, hub, time.monotonic())
+        store = SettingsStore(db)
+        backend = audio_backend if audio_backend is not None else SoundDeviceBackend()
+        voice = VoiceEngine(backend, store, audit, hub.publish_threadsafe)
+        health.register("voice", _voice_probe(voice))
+        svc = Services(settings, db, audit, TaskStore(db, audit), health, hub, time.monotonic(),
+                       store, NotificationCentre(db, hub.publish_threadsafe), voice,
+                       SystemMetrics(settings.data_dir))
         holder["svc"] = svc
         app.state.svc = svc
         await asyncio.to_thread(audit.record, "service.start", outcome="info",
                                 details={"version": VERSION, "pid": os.getpid()})
         loop_task = asyncio.create_task(_health_loop(svc))
+        metrics_task = asyncio.create_task(_metrics_loop(svc))
         log.info("JACK service ready on %s:%s (db=%s)", settings.host, settings.port, db.backend)
         try:
             yield
         finally:
-            loop_task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await loop_task
+            await asyncio.to_thread(voice.shutdown)
+            for t in (loop_task, metrics_task):
+                t.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await t
             await asyncio.to_thread(audit.record, "service.stop", outcome="info")
             db.dispose()
 
@@ -113,7 +180,7 @@ def create_app(settings: Settings) -> FastAPI:
 
     # Middleware order: last added runs first. Auth (incl. Host check) must be outermost.
     app.add_middleware(CORSMiddleware, allow_origins=list(settings.allowed_origins),
-                       allow_methods=["GET", "POST", "PUT", "DELETE"],
+                       allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
                        allow_headers=["Authorization", "Content-Type"], max_age=600)
     app.add_middleware(LoopbackAuthMiddleware, settings=settings,
                        audit_factory=lambda: holder["svc"].audit if "svc" in holder else None)
@@ -127,6 +194,10 @@ def create_app(settings: Settings) -> FastAPI:
         return JSONResponse(status_code=422, content={"error": {
             "code": "validation_error", "message": "Request validation failed",
             "request_id": None, "details": json.loads(json.dumps(exc.errors(), default=str))}})
+
+    @app.exception_handler(VoiceBlocked)
+    async def _voice_blocked(_: Request, exc: VoiceBlocked) -> JSONResponse:
+        return _error(409, exc.code, str(exc))
 
     @app.exception_handler(HTTPException)
     async def _http(_: Request, exc: HTTPException) -> JSONResponse:
@@ -199,6 +270,10 @@ def create_app(settings: Settings) -> FastAPI:
         except InvalidTransition as exc:
             raise HTTPException(409, str(exc)) from exc
         _publish(svc, "task.updated", task)
+        if task.status in NOTIFY_TASK_STATES:
+            level, title = NOTIFY_TASK_STATES[task.status]
+            svc.notifications.create(f"task.{task.status.lower()}", title, task.title,
+                                     level=level, task_id=task.id)  # type: ignore[arg-type]
         return task
 
     @app.post("/v1/tasks/{task_id}/transition", response_model=schemas.TaskOut)
@@ -228,6 +303,8 @@ def create_app(settings: Settings) -> FastAPI:
     def audit_verify(request: Request) -> Any:
         r = svc_of(request).audit.verify()
         return {"valid": r.valid, "checked": r.checked, "first_invalid_seq": r.first_invalid_seq}
+
+    app.include_router(m2_router)
 
     # ---------------------------------------------------------------- websocket
     @app.websocket("/v1/ws")

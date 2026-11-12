@@ -51,6 +51,7 @@ class Settings(BaseSettings):
     supervisor_pid: int | None = None
     ws_auth_timeout_s: float = 5.0
     health_interval_s: float = 10.0
+    metrics_interval_s: float = 3.0
     log_level: str = "INFO"
 
     @field_validator("host")

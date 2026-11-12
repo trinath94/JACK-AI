@@ -1,6 +1,39 @@
 {
   "components": {
     "schemas": {
+      "AudioDeviceOut": {
+        "properties": {
+          "channels": {
+            "title": "Channels",
+            "type": "integer"
+          },
+          "host_api": {
+            "title": "Host Api",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "is_default": {
+            "title": "Is Default",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "host_api",
+          "is_default",
+          "channels"
+        ],
+        "title": "AudioDeviceOut",
+        "type": "object"
+      },
       "AuditEventOut": {
         "properties": {
           "action": {
@@ -215,6 +248,164 @@
         "title": "HealthReport",
         "type": "object"
       },
+      "NotificationList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/NotificationOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "unread": {
+            "title": "Unread",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "unread"
+        ],
+        "title": "NotificationList",
+        "type": "object"
+      },
+      "NotificationOut": {
+        "properties": {
+          "body": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Body"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "level": {
+            "enum": [
+              "info",
+              "success",
+              "warning",
+              "error"
+            ],
+            "title": "Level",
+            "type": "string"
+          },
+          "read_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Read At"
+          },
+          "task_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Task Id"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "level",
+          "kind",
+          "title",
+          "body",
+          "task_id",
+          "created_at",
+          "read_at"
+        ],
+        "title": "NotificationOut",
+        "type": "object"
+      },
+      "PttResultOut": {
+        "properties": {
+          "captured_ms": {
+            "title": "Captured Ms",
+            "type": "integer"
+          },
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "stopped_by": {
+            "title": "Stopped By",
+            "type": "string"
+          },
+          "transcribed": {
+            "title": "Transcribed",
+            "type": "boolean"
+          },
+          "transcript": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transcript"
+          }
+        },
+        "required": [
+          "captured_ms",
+          "transcribed",
+          "transcript",
+          "detail",
+          "stopped_by"
+        ],
+        "title": "PttResultOut",
+        "type": "object"
+      },
+      "PttStart": {
+        "additionalProperties": false,
+        "properties": {
+          "source": {
+            "default": "ui",
+            "enum": [
+              "ui",
+              "hotkey",
+              "tray"
+            ],
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "title": "PttStart",
+        "type": "object"
+      },
       "ReasonBody": {
         "additionalProperties": false,
         "properties": {
@@ -275,6 +466,69 @@
           "ws_clients"
         ],
         "title": "SystemInfo",
+        "type": "object"
+      },
+      "SystemMetricsOut": {
+        "properties": {
+          "cpu_count": {
+            "title": "Cpu Count",
+            "type": "integer"
+          },
+          "cpu_percent": {
+            "title": "Cpu Percent",
+            "type": "number"
+          },
+          "disk_free_bytes": {
+            "title": "Disk Free Bytes",
+            "type": "integer"
+          },
+          "disk_percent": {
+            "title": "Disk Percent",
+            "type": "number"
+          },
+          "disk_total_bytes": {
+            "title": "Disk Total Bytes",
+            "type": "integer"
+          },
+          "memory_percent": {
+            "title": "Memory Percent",
+            "type": "number"
+          },
+          "memory_total_bytes": {
+            "title": "Memory Total Bytes",
+            "type": "integer"
+          },
+          "memory_used_bytes": {
+            "title": "Memory Used Bytes",
+            "type": "integer"
+          },
+          "service_cpu_percent": {
+            "title": "Service Cpu Percent",
+            "type": "number"
+          },
+          "service_rss_bytes": {
+            "title": "Service Rss Bytes",
+            "type": "integer"
+          },
+          "uptime_s": {
+            "title": "Uptime S",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "cpu_percent",
+          "cpu_count",
+          "memory_total_bytes",
+          "memory_used_bytes",
+          "memory_percent",
+          "disk_total_bytes",
+          "disk_free_bytes",
+          "disk_percent",
+          "service_rss_bytes",
+          "service_cpu_percent",
+          "uptime_s"
+        ],
+        "title": "SystemMetricsOut",
         "type": "object"
       },
       "TaskCreate": {
@@ -633,6 +887,215 @@
         ],
         "title": "ValidationError",
         "type": "object"
+      },
+      "VoiceCapabilities": {
+        "properties": {
+          "capture": {
+            "title": "Capture",
+            "type": "boolean"
+          },
+          "capture_detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capture Detail"
+          },
+          "pending_milestone": {
+            "title": "Pending Milestone",
+            "type": "integer"
+          },
+          "speech_recognition": {
+            "title": "Speech Recognition",
+            "type": "boolean"
+          },
+          "speech_synthesis": {
+            "title": "Speech Synthesis",
+            "type": "boolean"
+          },
+          "wake_word": {
+            "title": "Wake Word",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "capture",
+          "capture_detail",
+          "wake_word",
+          "speech_recognition",
+          "speech_synthesis",
+          "pending_milestone"
+        ],
+        "title": "VoiceCapabilities",
+        "type": "object"
+      },
+      "VoiceSettings": {
+        "additionalProperties": false,
+        "properties": {
+          "input_device_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input Device Id"
+          },
+          "max_listen_s": {
+            "default": 30,
+            "maximum": 120.0,
+            "minimum": 5.0,
+            "title": "Max Listen S",
+            "type": "integer"
+          },
+          "muted": {
+            "default": false,
+            "title": "Muted",
+            "type": "boolean"
+          },
+          "privacy_mode": {
+            "default": false,
+            "title": "Privacy Mode",
+            "type": "boolean"
+          },
+          "wake_word_enabled": {
+            "default": false,
+            "title": "Wake Word Enabled",
+            "type": "boolean"
+          },
+          "wake_word_sensitivity": {
+            "default": 0.5,
+            "maximum": 0.9,
+            "minimum": 0.1,
+            "title": "Wake Word Sensitivity",
+            "type": "number"
+          }
+        },
+        "title": "VoiceSettings",
+        "type": "object"
+      },
+      "VoiceSettingsPatch": {
+        "additionalProperties": false,
+        "properties": {
+          "input_device_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input Device Id"
+          },
+          "max_listen_s": {
+            "anyOf": [
+              {
+                "maximum": 120.0,
+                "minimum": 5.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Listen S"
+          },
+          "muted": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Muted"
+          },
+          "privacy_mode": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Privacy Mode"
+          },
+          "wake_word_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wake Word Enabled"
+          },
+          "wake_word_sensitivity": {
+            "anyOf": [
+              {
+                "maximum": 0.9,
+                "minimum": 0.1,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wake Word Sensitivity"
+          }
+        },
+        "title": "VoiceSettingsPatch",
+        "type": "object"
+      },
+      "VoiceStatus": {
+        "properties": {
+          "capabilities": {
+            "$ref": "#/components/schemas/VoiceCapabilities"
+          },
+          "listening_since_s": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Listening Since S"
+          },
+          "settings": {
+            "$ref": "#/components/schemas/VoiceSettings"
+          },
+          "state": {
+            "enum": [
+              "disabled",
+              "idle",
+              "listening",
+              "processing",
+              "speaking"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "settings",
+          "capabilities",
+          "listening_since_s"
+        ],
+        "title": "VoiceStatus",
+        "type": "object"
       }
     }
   },
@@ -753,6 +1216,123 @@
         "summary": "Health"
       }
     },
+    "/v1/notifications": {
+      "get": {
+        "operationId": "notifications_v1_notifications_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "unread_only",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Unread Only",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Notifications"
+      }
+    },
+    "/v1/notifications/read-all": {
+      "post": {
+        "operationId": "notifications_read_all_v1_notifications_read_all_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "integer"
+                  },
+                  "title": "Response Notifications Read All V1 Notifications Read All Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Notifications Read All"
+      }
+    },
+    "/v1/notifications/{notification_id}/read": {
+      "post": {
+        "operationId": "notification_read_v1_notifications__notification_id__read_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "notification_id",
+            "required": true,
+            "schema": {
+              "title": "Notification Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Notification Read"
+      }
+    },
     "/v1/system/info": {
       "get": {
         "operationId": "system_info_v1_system_info_get",
@@ -769,6 +1349,24 @@
           }
         },
         "summary": "System Info"
+      }
+    },
+    "/v1/system/metrics": {
+      "get": {
+        "operationId": "system_metrics_v1_system_metrics_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SystemMetricsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "System Metrics"
       }
     },
     "/v1/tasks": {
@@ -1109,6 +1707,148 @@
           }
         },
         "summary": "Transition"
+      }
+    },
+    "/v1/voice/devices": {
+      "get": {
+        "operationId": "voice_devices_v1_voice_devices_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AudioDeviceOut"
+                  },
+                  "title": "Response Voice Devices V1 Voice Devices Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Voice Devices"
+      }
+    },
+    "/v1/voice/ptt/start": {
+      "post": {
+        "operationId": "ptt_start_v1_voice_ptt_start_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PttStart"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Ptt Start"
+      }
+    },
+    "/v1/voice/ptt/stop": {
+      "post": {
+        "operationId": "ptt_stop_v1_voice_ptt_stop_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/PttResultOut"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Ptt Stop V1 Voice Ptt Stop Post"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Ptt Stop"
+      }
+    },
+    "/v1/voice/settings": {
+      "patch": {
+        "operationId": "voice_settings_v1_voice_settings_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoiceSettingsPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceSettings"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Voice Settings"
+      }
+    },
+    "/v1/voice/status": {
+      "get": {
+        "operationId": "voice_status_v1_voice_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Voice Status"
       }
     }
   }

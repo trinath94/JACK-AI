@@ -72,6 +72,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Notifications */
+        get: operations["notifications_v1_notifications_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/notifications/read-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Notifications Read All */
+        post: operations["notifications_read_all_v1_notifications_read_all_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/notifications/{notification_id}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Notification Read */
+        post: operations["notification_read_v1_notifications__notification_id__read_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/system/info": {
         parameters: {
             query?: never;
@@ -81,6 +132,23 @@ export interface paths {
         };
         /** System Info */
         get: operations["system_info_v1_system_info_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/system/metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** System Metrics */
+        get: operations["system_metrics_v1_system_metrics_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -192,10 +260,108 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/voice/devices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Voice Devices */
+        get: operations["voice_devices_v1_voice_devices_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/voice/ptt/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ptt Start */
+        post: operations["ptt_start_v1_voice_ptt_start_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/voice/ptt/stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ptt Stop */
+        post: operations["ptt_stop_v1_voice_ptt_stop_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/voice/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Voice Settings */
+        patch: operations["voice_settings_v1_voice_settings_patch"];
+        trace?: never;
+    };
+    "/v1/voice/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Voice Status */
+        get: operations["voice_status_v1_voice_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AudioDeviceOut */
+        AudioDeviceOut: {
+            /** Channels */
+            channels: number;
+            /** Host Api */
+            host_api: string;
+            /** Id */
+            id: string;
+            /** Is Default */
+            is_default: boolean;
+            /** Name */
+            name: string;
+        };
         /** AuditEventOut */
         AuditEventOut: {
             /** Action */
@@ -273,6 +439,59 @@ export interface components {
             /** Version */
             version: string;
         };
+        /** NotificationList */
+        NotificationList: {
+            /** Items */
+            items: components["schemas"]["NotificationOut"][];
+            /** Total */
+            total: number;
+            /** Unread */
+            unread: number;
+        };
+        /** NotificationOut */
+        NotificationOut: {
+            /** Body */
+            body: string | null;
+            /** Created At */
+            created_at: string;
+            /** Id */
+            id: string;
+            /** Kind */
+            kind: string;
+            /**
+             * Level
+             * @enum {string}
+             */
+            level: "info" | "success" | "warning" | "error";
+            /** Read At */
+            read_at: string | null;
+            /** Task Id */
+            task_id: string | null;
+            /** Title */
+            title: string;
+        };
+        /** PttResultOut */
+        PttResultOut: {
+            /** Captured Ms */
+            captured_ms: number;
+            /** Detail */
+            detail: string;
+            /** Stopped By */
+            stopped_by: string;
+            /** Transcribed */
+            transcribed: boolean;
+            /** Transcript */
+            transcript: string | null;
+        };
+        /** PttStart */
+        PttStart: {
+            /**
+             * Source
+             * @default ui
+             * @enum {string}
+             */
+            source: "ui" | "hotkey" | "tray";
+        };
         /** ReasonBody */
         ReasonBody: {
             /** Reason */
@@ -294,6 +513,31 @@ export interface components {
             python_version: string;
             /** Ws Clients */
             ws_clients: number;
+        };
+        /** SystemMetricsOut */
+        SystemMetricsOut: {
+            /** Cpu Count */
+            cpu_count: number;
+            /** Cpu Percent */
+            cpu_percent: number;
+            /** Disk Free Bytes */
+            disk_free_bytes: number;
+            /** Disk Percent */
+            disk_percent: number;
+            /** Disk Total Bytes */
+            disk_total_bytes: number;
+            /** Memory Percent */
+            memory_percent: number;
+            /** Memory Total Bytes */
+            memory_total_bytes: number;
+            /** Memory Used Bytes */
+            memory_used_bytes: number;
+            /** Service Cpu Percent */
+            service_cpu_percent: number;
+            /** Service Rss Bytes */
+            service_rss_bytes: number;
+            /** Uptime S */
+            uptime_s: number;
         };
         /** TaskCreate */
         TaskCreate: {
@@ -415,6 +659,78 @@ export interface components {
             /** Error Type */
             type: string;
         };
+        /** VoiceCapabilities */
+        VoiceCapabilities: {
+            /** Capture */
+            capture: boolean;
+            /** Capture Detail */
+            capture_detail: string | null;
+            /** Pending Milestone */
+            pending_milestone: number;
+            /** Speech Recognition */
+            speech_recognition: boolean;
+            /** Speech Synthesis */
+            speech_synthesis: boolean;
+            /** Wake Word */
+            wake_word: boolean;
+        };
+        /** VoiceSettings */
+        VoiceSettings: {
+            /** Input Device Id */
+            input_device_id?: string | null;
+            /**
+             * Max Listen S
+             * @default 30
+             */
+            max_listen_s: number;
+            /**
+             * Muted
+             * @default false
+             */
+            muted: boolean;
+            /**
+             * Privacy Mode
+             * @default false
+             */
+            privacy_mode: boolean;
+            /**
+             * Wake Word Enabled
+             * @default false
+             */
+            wake_word_enabled: boolean;
+            /**
+             * Wake Word Sensitivity
+             * @default 0.5
+             */
+            wake_word_sensitivity: number;
+        };
+        /** VoiceSettingsPatch */
+        VoiceSettingsPatch: {
+            /** Input Device Id */
+            input_device_id?: string | null;
+            /** Max Listen S */
+            max_listen_s?: number | null;
+            /** Muted */
+            muted?: boolean | null;
+            /** Privacy Mode */
+            privacy_mode?: boolean | null;
+            /** Wake Word Enabled */
+            wake_word_enabled?: boolean | null;
+            /** Wake Word Sensitivity */
+            wake_word_sensitivity?: number | null;
+        };
+        /** VoiceStatus */
+        VoiceStatus: {
+            capabilities: components["schemas"]["VoiceCapabilities"];
+            /** Listening Since S */
+            listening_since_s: number | null;
+            settings: components["schemas"]["VoiceSettings"];
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "disabled" | "idle" | "listening" | "processing" | "speaking";
+        };
     };
     responses: never;
     parameters: never;
@@ -518,6 +834,90 @@ export interface operations {
             };
         };
     };
+    notifications_v1_notifications_get: {
+        parameters: {
+            query?: {
+                unread_only?: boolean;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    notifications_read_all_v1_notifications_read_all_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: number;
+                    };
+                };
+            };
+        };
+    };
+    notification_read_v1_notifications__notification_id__read_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                notification_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     system_info_v1_system_info_get: {
         parameters: {
             query?: never;
@@ -534,6 +934,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SystemInfo"];
+                };
+            };
+        };
+    };
+    system_metrics_v1_system_metrics_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SystemMetricsOut"];
                 };
             };
         };
@@ -771,6 +1191,132 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    voice_devices_v1_voice_devices_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AudioDeviceOut"][];
+                };
+            };
+        };
+    };
+    ptt_start_v1_voice_ptt_start_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PttStart"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoiceStatus"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ptt_stop_v1_voice_ptt_stop_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PttResultOut"] | null;
+                };
+            };
+        };
+    };
+    voice_settings_v1_voice_settings_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VoiceSettingsPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoiceSettings"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    voice_status_v1_voice_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoiceStatus"];
                 };
             };
         };

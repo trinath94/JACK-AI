@@ -5,6 +5,8 @@ fn main() {
             "backend_connection",
             "backend_status",
             "restart_backend",
+            "sync_tray",
+            "ptt_shortcut",
         ]),
     ))
     .expect("failed to run tauri-build");

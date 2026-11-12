@@ -26,6 +26,8 @@ hex = "0.4"
 thiserror = "2"
 log = "0.4"
 tauri-plugin-log = "=2.10.2"
+tauri-plugin-autostart = "=2.7.0"
+tauri-plugin-global-shortcut = "=2.4.1"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
