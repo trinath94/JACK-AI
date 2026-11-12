@@ -21,6 +21,160 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/ai/anthropic/key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set Key */
+        put: operations["set_key_v1_ai_anthropic_key_put"];
+        post?: never;
+        /** Delete Key */
+        delete: operations["delete_key_v1_ai_anthropic_key_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/ai/anthropic/models": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Models */
+        get: operations["models_v1_ai_anthropic_models_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/ai/claude-code/detect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Detect */
+        post: operations["detect_v1_ai_claude_code_detect_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/ai/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Complete */
+        post: operations["complete_v1_ai_complete_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/ai/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Settings */
+        patch: operations["update_settings_v1_ai_settings_patch"];
+        trace?: never;
+    };
+    "/v1/ai/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Status */
+        get: operations["status_v1_ai_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/ai/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Usage */
+        get: operations["usage_v1_ai_usage_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/ai/usage/records": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Usage Records */
+        get: operations["usage_records_v1_ai_usage_records_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/ai/{provider}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Test */
+        post: operations["test_v1_ai__provider__test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/audit": {
         parameters: {
             query?: never;
@@ -473,6 +627,70 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AISettings */
+        AISettings: {
+            anthropic?: components["schemas"]["AnthropicSettings"];
+            claude_code?: components["schemas"]["ClaudeCodeSettings"];
+            fallback?: components["schemas"]["FallbackSettings"];
+            limits?: components["schemas"]["LimitSettings"];
+            routing?: components["schemas"]["RoutingSettings"];
+        };
+        /** AISettingsPatch */
+        AISettingsPatch: {
+            /** Anthropic */
+            anthropic?: {
+                [key: string]: unknown;
+            } | null;
+            /** Claude Code */
+            claude_code?: {
+                [key: string]: unknown;
+            } | null;
+            /** Fallback */
+            fallback?: {
+                [key: string]: unknown;
+            } | null;
+            /** Limits */
+            limits?: {
+                [key: string]: unknown;
+            } | null;
+            /** Routing */
+            routing?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        /** AnthropicSettings */
+        AnthropicSettings: {
+            /**
+             * Effort
+             * @default medium
+             */
+            effort: ("low" | "medium" | "high" | "xhigh" | "max") | null;
+            /**
+             * Max Retries
+             * @default 2
+             */
+            max_retries: number;
+            /**
+             * Model
+             * @default claude-opus-5-5
+             */
+            model: string;
+            /**
+             * Refusal Fallback
+             * @default true
+             */
+            refusal_fallback: boolean;
+            /**
+             * Timeout S
+             * @default 120
+             */
+            timeout_s: number;
+        };
+        /** ApiKeyBody */
+        ApiKeyBody: {
+            /** Api Key */
+            api_key: string;
+        };
         /** AudioDeviceOut */
         AudioDeviceOut: {
             /** Channels */
@@ -528,6 +746,39 @@ export interface components {
             /** Valid */
             valid: boolean;
         };
+        /** ClaudeCodeSettings */
+        ClaudeCodeSettings: {
+            /** Binary */
+            binary?: string | null;
+            /**
+             * Enabled
+             * @default false
+             */
+            enabled: boolean;
+            /** Model */
+            model?: string | null;
+            /**
+             * Timeout S
+             * @default 300
+             */
+            timeout_s: number;
+        };
+        /** CompleteBody */
+        CompleteBody: {
+            /**
+             * Max Tokens
+             * @default 2048
+             */
+            max_tokens: number;
+            /** Prompt */
+            prompt: string;
+            /** Provider */
+            provider?: ("anthropic" | "claude_code") | null;
+            /** System */
+            system?: string | null;
+            /** Task Id */
+            task_id?: string | null;
+        };
         /** ComponentHealthOut */
         ComponentHealthOut: {
             /** Checked At */
@@ -543,6 +794,14 @@ export interface components {
              * @enum {string}
              */
             status: "healthy" | "degraded" | "unhealthy";
+        };
+        /** FallbackSettings */
+        FallbackSettings: {
+            /**
+             * Enabled
+             * @default false
+             */
+            enabled: boolean;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -569,6 +828,17 @@ export interface components {
             items: components["schemas"]["SessionOut"][];
             /** Total */
             total: number;
+        };
+        /** LimitSettings */
+        LimitSettings: {
+            /** Alert Pct */
+            alert_pct?: number[];
+            /** Monthly Usd */
+            monthly_usd?: string | null;
+            /** Per Project Usd */
+            per_project_usd?: string | null;
+            /** Per Task Usd */
+            per_task_usd?: string | null;
         };
         /** NotificationList */
         NotificationList: {
@@ -623,6 +893,21 @@ export interface components {
         ReasonBody: {
             /** Reason */
             reason?: string | null;
+        };
+        /** RoutingSettings */
+        RoutingSettings: {
+            /**
+             * Coding
+             * @default claude_code
+             * @enum {string}
+             */
+            coding: "anthropic" | "claude_code";
+            /**
+             * Reasoning
+             * @default anthropic
+             * @enum {string}
+             */
+            reasoning: "anthropic" | "claude_code";
         };
         /** SessionOut */
         SessionOut: {
@@ -999,6 +1284,286 @@ export interface operations {
                     "application/json": {
                         [key: string]: string;
                     };
+                };
+            };
+        };
+    };
+    set_key_v1_ai_anthropic_key_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApiKeyBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_key_v1_ai_anthropic_key_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    models_v1_ai_anthropic_models_get: {
+        parameters: {
+            query?: {
+                refresh?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    detect_v1_ai_claude_code_detect_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    complete_v1_ai_complete_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CompleteBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_settings_v1_ai_settings_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AISettingsPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AISettings"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    status_v1_ai_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    usage_v1_ai_usage_get: {
+        parameters: {
+            query?: {
+                month?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    usage_records_v1_ai_usage_records_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    test_v1_ai__provider__test_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: "anthropic" | "claude_code";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

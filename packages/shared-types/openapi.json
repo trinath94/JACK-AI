@@ -1,6 +1,163 @@
 {
   "components": {
     "schemas": {
+      "AISettings": {
+        "additionalProperties": false,
+        "properties": {
+          "anthropic": {
+            "$ref": "#/components/schemas/AnthropicSettings"
+          },
+          "claude_code": {
+            "$ref": "#/components/schemas/ClaudeCodeSettings"
+          },
+          "fallback": {
+            "$ref": "#/components/schemas/FallbackSettings"
+          },
+          "limits": {
+            "$ref": "#/components/schemas/LimitSettings"
+          },
+          "routing": {
+            "$ref": "#/components/schemas/RoutingSettings"
+          }
+        },
+        "title": "AISettings",
+        "type": "object"
+      },
+      "AISettingsPatch": {
+        "additionalProperties": false,
+        "properties": {
+          "anthropic": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Anthropic"
+          },
+          "claude_code": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Claude Code"
+          },
+          "fallback": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fallback"
+          },
+          "limits": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Limits"
+          },
+          "routing": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Routing"
+          }
+        },
+        "title": "AISettingsPatch",
+        "type": "object"
+      },
+      "AnthropicSettings": {
+        "additionalProperties": false,
+        "properties": {
+          "effort": {
+            "anyOf": [
+              {
+                "enum": [
+                  "low",
+                  "medium",
+                  "high",
+                  "xhigh",
+                  "max"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": "medium",
+            "title": "Effort"
+          },
+          "max_retries": {
+            "default": 2,
+            "maximum": 5.0,
+            "minimum": 0.0,
+            "title": "Max Retries",
+            "type": "integer"
+          },
+          "model": {
+            "default": "claude-opus-5-5",
+            "maxLength": 64,
+            "minLength": 3,
+            "title": "Model",
+            "type": "string"
+          },
+          "refusal_fallback": {
+            "default": true,
+            "title": "Refusal Fallback",
+            "type": "boolean"
+          },
+          "timeout_s": {
+            "default": 120,
+            "maximum": 600.0,
+            "minimum": 10.0,
+            "title": "Timeout S",
+            "type": "number"
+          }
+        },
+        "title": "AnthropicSettings",
+        "type": "object"
+      },
+      "ApiKeyBody": {
+        "additionalProperties": false,
+        "properties": {
+          "api_key": {
+            "maxLength": 300,
+            "minLength": 10,
+            "title": "Api Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "api_key"
+        ],
+        "title": "ApiKeyBody",
+        "type": "object"
+      },
       "AudioDeviceOut": {
         "properties": {
           "channels": {
@@ -154,6 +311,110 @@
         "title": "AuditVerify",
         "type": "object"
       },
+      "ClaudeCodeSettings": {
+        "additionalProperties": false,
+        "properties": {
+          "binary": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Binary"
+          },
+          "enabled": {
+            "default": false,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "timeout_s": {
+            "default": 300,
+            "maximum": 1800.0,
+            "minimum": 30.0,
+            "title": "Timeout S",
+            "type": "number"
+          }
+        },
+        "title": "ClaudeCodeSettings",
+        "type": "object"
+      },
+      "CompleteBody": {
+        "additionalProperties": false,
+        "properties": {
+          "max_tokens": {
+            "default": 2048,
+            "maximum": 32000.0,
+            "minimum": 16.0,
+            "title": "Max Tokens",
+            "type": "integer"
+          },
+          "prompt": {
+            "maxLength": 20000,
+            "minLength": 1,
+            "title": "Prompt",
+            "type": "string"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "enum": [
+                  "anthropic",
+                  "claude_code"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "system": {
+            "anyOf": [
+              {
+                "maxLength": 10000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "System"
+          },
+          "task_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Task Id"
+          }
+        },
+        "required": [
+          "prompt"
+        ],
+        "title": "CompleteBody",
+        "type": "object"
+      },
       "ComponentHealthOut": {
         "properties": {
           "checked_at": {
@@ -197,6 +458,18 @@
           "checked_at"
         ],
         "title": "ComponentHealthOut",
+        "type": "object"
+      },
+      "FallbackSettings": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "default": false,
+            "title": "Enabled",
+            "type": "boolean"
+          }
+        },
+        "title": "FallbackSettings",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -267,6 +540,53 @@
           "total"
         ],
         "title": "HistoryOut",
+        "type": "object"
+      },
+      "LimitSettings": {
+        "additionalProperties": false,
+        "properties": {
+          "alert_pct": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Alert Pct",
+            "type": "array"
+          },
+          "monthly_usd": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monthly Usd"
+          },
+          "per_project_usd": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Per Project Usd"
+          },
+          "per_task_usd": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Per Task Usd"
+          }
+        },
+        "title": "LimitSettings",
         "type": "object"
       },
       "NotificationList": {
@@ -427,6 +747,31 @@
           }
         },
         "title": "ReasonBody",
+        "type": "object"
+      },
+      "RoutingSettings": {
+        "additionalProperties": false,
+        "properties": {
+          "coding": {
+            "default": "claude_code",
+            "enum": [
+              "anthropic",
+              "claude_code"
+            ],
+            "title": "Coding",
+            "type": "string"
+          },
+          "reasoning": {
+            "default": "anthropic",
+            "enum": [
+              "anthropic",
+              "claude_code"
+            ],
+            "title": "Reasoning",
+            "type": "string"
+          }
+        },
+        "title": "RoutingSettings",
         "type": "object"
       },
       "SessionOut": {
@@ -1490,6 +1835,341 @@
           }
         },
         "summary": "Live"
+      }
+    },
+    "/v1/ai/anthropic/key": {
+      "delete": {
+        "operationId": "delete_key_v1_ai_anthropic_key_delete",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Delete Key"
+      },
+      "put": {
+        "operationId": "set_key_v1_ai_anthropic_key_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApiKeyBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Key"
+      }
+    },
+    "/v1/ai/anthropic/models": {
+      "get": {
+        "operationId": "models_v1_ai_anthropic_models_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "refresh",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Refresh",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Models V1 Ai Anthropic Models Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Models"
+      }
+    },
+    "/v1/ai/claude-code/detect": {
+      "post": {
+        "operationId": "detect_v1_ai_claude_code_detect_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Detect V1 Ai Claude Code Detect Post"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Detect"
+      }
+    },
+    "/v1/ai/complete": {
+      "post": {
+        "operationId": "complete_v1_ai_complete_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Complete V1 Ai Complete Post"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Complete"
+      }
+    },
+    "/v1/ai/settings": {
+      "patch": {
+        "operationId": "update_settings_v1_ai_settings_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AISettingsPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AISettings"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Settings"
+      }
+    },
+    "/v1/ai/status": {
+      "get": {
+        "operationId": "status_v1_ai_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Status V1 Ai Status Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Status"
+      }
+    },
+    "/v1/ai/usage": {
+      "get": {
+        "operationId": "usage_v1_ai_usage_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "month",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^\\d{4}-\\d{2}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Month"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Usage V1 Ai Usage Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Usage"
+      }
+    },
+    "/v1/ai/usage/records": {
+      "get": {
+        "operationId": "usage_records_v1_ai_usage_records_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Usage Records V1 Ai Usage Records Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Usage Records"
+      }
+    },
+    "/v1/ai/{provider}/test": {
+      "post": {
+        "operationId": "test_v1_ai__provider__test_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "enum": [
+                "anthropic",
+                "claude_code"
+              ],
+              "title": "Provider",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Test V1 Ai  Provider  Test Post"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Test"
       }
     },
     "/v1/audit": {
