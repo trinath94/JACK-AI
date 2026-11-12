@@ -2,6 +2,7 @@ import type {
   BackendConnection,
   BackendStatus,
   Notification,
+  SpeechModel,
   SystemMetrics,
   VoiceStatus,
 } from "@jack/shared-types";
@@ -96,14 +97,25 @@ export const VOICE: VoiceStatus = {
     muted: false,
     privacy_mode: false,
     max_listen_s: 30,
+    asr_model: "small.en",
+    end_of_speech_ms: 800,
+    tts_enabled: true,
+    tts_voice_id: null,
+    tts_rate: 1,
+    keep_history: true,
+    history_retention_days: 30,
   },
   capabilities: {
     capture: true,
     capture_detail: null,
-    wake_word: false,
-    speech_recognition: false,
-    speech_synthesis: false,
-    pending_milestone: 3,
+    wake_word: true,
+    wake_word_detail: null,
+    wake_word_engine: "keyword-asr",
+    speech_recognition: true,
+    speech_recognition_detail: null,
+    speech_synthesis: true,
+    speech_synthesis_detail: null,
+    speech_synthesis_engine: "sapi",
   },
   listening_since_s: null,
 };
@@ -136,8 +148,15 @@ export const TASK = {
 };
 
 /** In-memory stand-in for the JACK service REST API. */
+export const MODELS: SpeechModel[] = [
+  { name: "tiny.en", size_mb: 75, purpose: "Wake word", status: "ready", downloaded_mb: 0, error: null },
+  { name: "base.en", size_mb: 145, purpose: "Commands on slower PCs", status: "not_downloaded", downloaded_mb: 0, error: null },
+  { name: "small.en", size_mb: 484, purpose: "Commands (recommended accuracy)", status: "ready", downloaded_mb: 0, error: null },
+];
+
 export function mockService(init: { voice?: VoiceStatus; notifications?: Notification[] } = {}) {
   const state = {
+    models: structuredClone(MODELS),
     voice: structuredClone(init.voice ?? VOICE),
     notifications: structuredClone(init.notifications ?? []) as Notification[],
     pttError: null as null | { code: string; message: string },
@@ -164,8 +183,19 @@ export function mockService(init: { voice?: VoiceStatus; notifications?: Notific
       if (state.pttError) return json(409, { error: { ...state.pttError, request_id: null } });
       return json(200, { ...state.voice, state: "listening" });
     }
-    if (path === "/v1/voice/ptt/stop")
-      return json(200, { captured_ms: 1500, transcribed: false, transcript: null, detail: "Speech recognition arrives in Milestone 3; the captured audio was discarded.", stopped_by: "released" });
+    if (path === "/v1/voice/ptt/stop") return json(200, { captured_ms: 1500, stopped_by: "released", processing: true });
+    if (path === "/v1/voice/models") return json(200, state.models);
+    if (/^\/v1\/voice\/models\/[^/]+\/download$/.test(path)) {
+      const m = state.models.find((x) => x.name === path.split("/")[4]);
+      if (m) m.status = "downloading";
+      return json(202, { started: true });
+    }
+    if (path === "/v1/voice/voices") return json(200, [{ id: "zira", name: "Microsoft Zira", language: "en-US" }]);
+    if (path === "/v1/voice/speak") return json(202, { queued: true });
+    if (path === "/v1/voice/stop-speaking") return json(200, { stopped: true });
+    if (path.startsWith("/v1/voice/history") && method === "DELETE") return json(200, { deleted: 1 });
+    if (path.startsWith("/v1/voice/history"))
+      return json(200, { items: [{ id: "s1", trigger: "wake", started_at: "2026-11-12T10:00:00Z", ended_at: null, task_id: "t1", turns: [{ role: "user", text: "build a website", created_at: "2026-11-12T10:00:00Z" }, { role: "jack", text: "Got it.", created_at: "2026-11-12T10:00:01Z" }] }], total: 1 });
     if (path.startsWith("/v1/notifications?"))
       return json(200, { items: state.notifications, total: state.notifications.length, unread: state.notifications.filter((n) => !n.read_at).length });
     if (path === "/v1/notifications/read-all") {

@@ -248,6 +248,27 @@
         "title": "HealthReport",
         "type": "object"
       },
+      "HistoryOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SessionOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "HistoryOut",
+        "type": "object"
+      },
       "NotificationList": {
         "properties": {
           "items": {
@@ -349,46 +370,6 @@
         "title": "NotificationOut",
         "type": "object"
       },
-      "PttResultOut": {
-        "properties": {
-          "captured_ms": {
-            "title": "Captured Ms",
-            "type": "integer"
-          },
-          "detail": {
-            "title": "Detail",
-            "type": "string"
-          },
-          "stopped_by": {
-            "title": "Stopped By",
-            "type": "string"
-          },
-          "transcribed": {
-            "title": "Transcribed",
-            "type": "boolean"
-          },
-          "transcript": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Transcript"
-          }
-        },
-        "required": [
-          "captured_ms",
-          "transcribed",
-          "transcript",
-          "detail",
-          "stopped_by"
-        ],
-        "title": "PttResultOut",
-        "type": "object"
-      },
       "PttStart": {
         "additionalProperties": false,
         "properties": {
@@ -404,6 +385,29 @@
           }
         },
         "title": "PttStart",
+        "type": "object"
+      },
+      "PttStoppedOut": {
+        "properties": {
+          "captured_ms": {
+            "title": "Captured Ms",
+            "type": "integer"
+          },
+          "processing": {
+            "title": "Processing",
+            "type": "boolean"
+          },
+          "stopped_by": {
+            "title": "Stopped By",
+            "type": "string"
+          }
+        },
+        "required": [
+          "captured_ms",
+          "stopped_by",
+          "processing"
+        ],
+        "title": "PttStoppedOut",
         "type": "object"
       },
       "ReasonBody": {
@@ -423,6 +427,128 @@
           }
         },
         "title": "ReasonBody",
+        "type": "object"
+      },
+      "SessionOut": {
+        "properties": {
+          "ended_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ended At"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "started_at": {
+            "title": "Started At",
+            "type": "string"
+          },
+          "task_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Task Id"
+          },
+          "trigger": {
+            "title": "Trigger",
+            "type": "string"
+          },
+          "turns": {
+            "items": {
+              "$ref": "#/components/schemas/TurnOut"
+            },
+            "title": "Turns",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "trigger",
+          "started_at",
+          "ended_at",
+          "task_id",
+          "turns"
+        ],
+        "title": "SessionOut",
+        "type": "object"
+      },
+      "SpeakBody": {
+        "additionalProperties": false,
+        "properties": {
+          "text": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "SpeakBody",
+        "type": "object"
+      },
+      "SpeechModelOut": {
+        "properties": {
+          "downloaded_mb": {
+            "title": "Downloaded Mb",
+            "type": "number"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "purpose": {
+            "title": "Purpose",
+            "type": "string"
+          },
+          "size_mb": {
+            "title": "Size Mb",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "not_downloaded",
+              "downloading",
+              "ready",
+              "error"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "size_mb",
+          "purpose",
+          "status",
+          "downloaded_mb",
+          "error"
+        ],
+        "title": "SpeechModelOut",
         "type": "object"
       },
       "SystemInfo": {
@@ -848,6 +974,63 @@
         "title": "TaskTransition",
         "type": "object"
       },
+      "TtsVoiceOut": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "language"
+        ],
+        "title": "TtsVoiceOut",
+        "type": "object"
+      },
+      "TurnOut": {
+        "properties": {
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "user",
+              "jack"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role",
+          "text",
+          "created_at"
+        ],
+        "title": "TurnOut",
+        "type": "object"
+      },
       "ValidationError": {
         "properties": {
           "ctx": {
@@ -905,30 +1088,71 @@
             ],
             "title": "Capture Detail"
           },
-          "pending_milestone": {
-            "title": "Pending Milestone",
-            "type": "integer"
-          },
           "speech_recognition": {
             "title": "Speech Recognition",
             "type": "boolean"
+          },
+          "speech_recognition_detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Speech Recognition Detail"
           },
           "speech_synthesis": {
             "title": "Speech Synthesis",
             "type": "boolean"
           },
+          "speech_synthesis_detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Speech Synthesis Detail"
+          },
+          "speech_synthesis_engine": {
+            "title": "Speech Synthesis Engine",
+            "type": "string"
+          },
           "wake_word": {
             "title": "Wake Word",
             "type": "boolean"
+          },
+          "wake_word_detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wake Word Detail"
+          },
+          "wake_word_engine": {
+            "title": "Wake Word Engine",
+            "type": "string"
           }
         },
         "required": [
           "capture",
           "capture_detail",
           "wake_word",
+          "wake_word_detail",
+          "wake_word_engine",
           "speech_recognition",
+          "speech_recognition_detail",
           "speech_synthesis",
-          "pending_milestone"
+          "speech_synthesis_detail",
+          "speech_synthesis_engine"
         ],
         "title": "VoiceCapabilities",
         "type": "object"
@@ -936,6 +1160,30 @@
       "VoiceSettings": {
         "additionalProperties": false,
         "properties": {
+          "asr_model": {
+            "default": "small.en",
+            "enum": [
+              "tiny.en",
+              "base.en",
+              "small.en"
+            ],
+            "title": "Asr Model",
+            "type": "string"
+          },
+          "end_of_speech_ms": {
+            "default": 800,
+            "maximum": 3000.0,
+            "minimum": 300.0,
+            "title": "End Of Speech Ms",
+            "type": "integer"
+          },
+          "history_retention_days": {
+            "default": 30,
+            "maximum": 365.0,
+            "minimum": 1.0,
+            "title": "History Retention Days",
+            "type": "integer"
+          },
           "input_device_id": {
             "anyOf": [
               {
@@ -946,6 +1194,11 @@
               }
             ],
             "title": "Input Device Id"
+          },
+          "keep_history": {
+            "default": true,
+            "title": "Keep History",
+            "type": "boolean"
           },
           "max_listen_s": {
             "default": 30,
@@ -963,6 +1216,29 @@
             "default": false,
             "title": "Privacy Mode",
             "type": "boolean"
+          },
+          "tts_enabled": {
+            "default": true,
+            "title": "Tts Enabled",
+            "type": "boolean"
+          },
+          "tts_rate": {
+            "default": 1.0,
+            "maximum": 2.0,
+            "minimum": 0.5,
+            "title": "Tts Rate",
+            "type": "number"
+          },
+          "tts_voice_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tts Voice Id"
           },
           "wake_word_enabled": {
             "default": false,
@@ -983,6 +1259,48 @@
       "VoiceSettingsPatch": {
         "additionalProperties": false,
         "properties": {
+          "asr_model": {
+            "anyOf": [
+              {
+                "enum": [
+                  "tiny.en",
+                  "base.en",
+                  "small.en"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asr Model"
+          },
+          "end_of_speech_ms": {
+            "anyOf": [
+              {
+                "maximum": 3000.0,
+                "minimum": 300.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Of Speech Ms"
+          },
+          "history_retention_days": {
+            "anyOf": [
+              {
+                "maximum": 365.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "History Retention Days"
+          },
           "input_device_id": {
             "anyOf": [
               {
@@ -993,6 +1311,17 @@
               }
             ],
             "title": "Input Device Id"
+          },
+          "keep_history": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Keep History"
           },
           "max_listen_s": {
             "anyOf": [
@@ -1028,6 +1357,41 @@
               }
             ],
             "title": "Privacy Mode"
+          },
+          "tts_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tts Enabled"
+          },
+          "tts_rate": {
+            "anyOf": [
+              {
+                "maximum": 2.0,
+                "minimum": 0.5,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tts Rate"
+          },
+          "tts_voice_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tts Voice Id"
           },
           "wake_word_enabled": {
             "anyOf": [
@@ -1080,6 +1444,7 @@
             "enum": [
               "disabled",
               "idle",
+              "standby",
               "listening",
               "processing",
               "speaking"
@@ -1731,6 +2096,176 @@
         "summary": "Voice Devices"
       }
     },
+    "/v1/voice/history": {
+      "delete": {
+        "operationId": "history_clear_v1_voice_history_delete",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "integer"
+                  },
+                  "title": "Response History Clear V1 Voice History Delete",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "History Clear"
+      },
+      "get": {
+        "operationId": "history_v1_voice_history_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HistoryOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "History"
+      }
+    },
+    "/v1/voice/models": {
+      "get": {
+        "operationId": "models_v1_voice_models_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SpeechModelOut"
+                  },
+                  "title": "Response Models V1 Voice Models Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Models"
+      }
+    },
+    "/v1/voice/models/{name}": {
+      "delete": {
+        "operationId": "model_delete_v1_voice_models__name__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Model Delete"
+      }
+    },
+    "/v1/voice/models/{name}/download": {
+      "post": {
+        "operationId": "model_download_v1_voice_models__name__download_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "boolean"
+                  },
+                  "title": "Response Model Download V1 Voice Models  Name  Download Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Model Download"
+      }
+    },
     "/v1/voice/ptt/start": {
       "post": {
         "operationId": "ptt_start_v1_voice_ptt_start_post",
@@ -1771,6 +2306,7 @@
     },
     "/v1/voice/ptt/stop": {
       "post": {
+        "description": "Closes the microphone. Recognition continues in the background; the result arrives\nas a ``voice.utterance`` event.",
         "operationId": "ptt_stop_v1_voice_ptt_stop_post",
         "responses": {
           "200": {
@@ -1779,7 +2315,7 @@
                 "schema": {
                   "anyOf": [
                     {
-                      "$ref": "#/components/schemas/PttResultOut"
+                      "$ref": "#/components/schemas/PttStoppedOut"
                     },
                     {
                       "type": "null"
@@ -1833,6 +2369,48 @@
         "summary": "Voice Settings"
       }
     },
+    "/v1/voice/speak": {
+      "post": {
+        "operationId": "speak_v1_voice_speak_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SpeakBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "boolean"
+                  },
+                  "title": "Response Speak V1 Voice Speak Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Speak"
+      }
+    },
     "/v1/voice/status": {
       "get": {
         "operationId": "voice_status_v1_voice_status_get",
@@ -1849,6 +2427,50 @@
           }
         },
         "summary": "Voice Status"
+      }
+    },
+    "/v1/voice/stop-speaking": {
+      "post": {
+        "operationId": "stop_speaking_v1_voice_stop_speaking_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "boolean"
+                  },
+                  "title": "Response Stop Speaking V1 Voice Stop Speaking Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Stop Speaking"
+      }
+    },
+    "/v1/voice/voices": {
+      "get": {
+        "operationId": "tts_voices_v1_voice_voices_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TtsVoiceOut"
+                  },
+                  "title": "Response Tts Voices V1 Voice Voices Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Tts Voices"
       }
     }
   }

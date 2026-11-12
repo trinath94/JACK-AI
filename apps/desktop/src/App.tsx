@@ -28,7 +28,8 @@ export function shortcutRows(ptt: string | null): ShortcutRow[] {
   ];
 }
 
-const VOICE_TONE = { listening: "bad", processing: "accent", speaking: "accent", disabled: "warn", idle: "muted" } as const;
+const VOICE_TONE = { listening: "bad", processing: "accent", speaking: "accent", disabled: "warn", idle: "muted", standby: "ok" } as const;
+const VOICE_LABEL = { listening: "listening", processing: "thinking", speaking: "speaking", idle: "voice ready", standby: "wake word on" } as const;
 
 export function App() {
   const [page, setPage] = useState<PageId>("home");
@@ -110,7 +111,7 @@ export function App() {
             {voice && (
               <span data-testid="voice-status">
                 <Pill tone={VOICE_TONE[voice.state]}>
-                  {voice.state === "disabled" ? (voice.settings.privacy_mode ? "privacy mode" : "mic muted") : `voice ${voice.state}`}
+                  {voice.state === "disabled" ? (voice.settings.privacy_mode ? "privacy mode" : "mic muted") : VOICE_LABEL[voice.state]}
                 </Pill>
               </span>
             )}

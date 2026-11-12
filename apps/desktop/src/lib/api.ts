@@ -5,13 +5,16 @@ import type {
   AudioDevice,
   HealthReport,
   NotificationList,
-  PttResult,
+  PttStopped,
+  SpeechModel,
   SystemInfo,
   SystemMetrics,
   Task,
   TaskDetail,
   TaskList,
   TaskStatus,
+  TtsVoice,
+  VoiceHistory,
   VoiceSettings,
   VoiceSettingsPatch,
   VoiceStatus,
@@ -103,7 +106,31 @@ export class JackApi {
     return this.request<VoiceStatus>("POST", "/v1/voice/ptt/start", { source });
   }
   pttStop() {
-    return this.request<PttResult | null>("POST", "/v1/voice/ptt/stop");
+    return this.request<PttStopped | null>("POST", "/v1/voice/ptt/stop");
+  }
+  speechModels() {
+    return this.request<SpeechModel[]>("GET", "/v1/voice/models");
+  }
+  downloadSpeechModel(name: string) {
+    return this.request<{ started: boolean }>("POST", `/v1/voice/models/${encodeURIComponent(name)}/download`);
+  }
+  deleteSpeechModel(name: string) {
+    return this.request<void>("DELETE", `/v1/voice/models/${encodeURIComponent(name)}`);
+  }
+  ttsVoices() {
+    return this.request<TtsVoice[]>("GET", "/v1/voice/voices");
+  }
+  speak(text: string) {
+    return this.request<{ queued: boolean }>("POST", "/v1/voice/speak", { text });
+  }
+  stopSpeaking() {
+    return this.request<{ stopped: boolean }>("POST", "/v1/voice/stop-speaking");
+  }
+  voiceHistory(limit = 30) {
+    return this.request<VoiceHistory>("GET", `/v1/voice/history?limit=${limit}`);
+  }
+  clearVoiceHistory() {
+    return this.request<{ deleted: number }>("DELETE", "/v1/voice/history");
   }
   notifications(unreadOnly = false, limit = 50) {
     return this.request<NotificationList>(
