@@ -57,6 +57,7 @@ def main() -> int:
 
     OUT.mkdir(parents=True, exist_ok=True)
     dest = OUT / f"jack-service-{triple}{exe_suffix}"
+    dest.unlink(missing_ok=True)
     shutil.copy2(work / "dist" / f"jack-service{exe_suffix}", dest)
     print(f"sidecar -> {dest} ({dest.stat().st_size / 1e6:.1f} MB)")
     return 0

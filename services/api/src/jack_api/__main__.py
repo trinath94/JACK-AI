@@ -11,7 +11,7 @@ import sys
 import uvicorn
 from pydantic import ValidationError
 
-from jack_api import redaction
+from jack_api import lifeline, redaction
 from jack_api.app import create_app
 from jack_api.config import Settings
 
@@ -27,6 +27,8 @@ def main() -> int:
     redaction.install(settings.log_level)
     redaction.register_secret(settings.session_token.get_secret_value())
     app = create_app(settings)
+    if settings.exit_with_parent:
+        lifeline.watch_parent()
     logging.getLogger(__name__).info("starting jack-service on %s:%d", settings.host, settings.port)
     uvicorn.run(app, host=settings.host, port=settings.port, log_config=None,
                 access_log=False, ws_max_size=1 << 20, timeout_graceful_shutdown=5)

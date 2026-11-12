@@ -47,6 +47,7 @@ class Settings(BaseSettings):
     data_dir: Path = Field(default_factory=default_data_dir)
     database_url: str | None = None
     dev_mode: bool = False
+    exit_with_parent: bool = False
     ws_auth_timeout_s: float = 5.0
     health_interval_s: float = 10.0
     log_level: str = "INFO"
