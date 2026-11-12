@@ -65,7 +65,7 @@ Until real-voice results exist, these figures are a regression baseline, not fie
 | `cargo audit` / `pnpm audit` | 0 vulnerabilities (same 5 Linux-only GTK warnings) / none | [rust-audit.txt](evidence-m3/rust-audit.txt) |
 | **End-to-end, release build, real speech into a virtual microphone** | **20/20 passed** | [e2e-linux-smoke.txt](evidence-m3/e2e-linux-smoke.txt) |
 | Wake-word evaluation | see §2 | [wakeword-eval.md](evidence-m3/wakeword-eval.md) |
-| GitHub Actions CI | _see §6_ | |
+| GitHub Actions CI (5 jobs) | **5/5 passed** | [run 43296606150](https://github.com/trinath94/jack-ai/actions/runs/43296606150) |
 
 ### End-to-end: what was proven on the release build
 
@@ -130,7 +130,23 @@ espeak-ng speech plays into a PulseAudio virtual microphone, and the frozen 172 
 
 ## 6. CI
 
-_Filled in after the run on this branch._
+[Run 43296606150](https://github.com/trinath94/jack-ai/actions/runs/43296606150), commit `5c4f453`: **all 5 jobs passed**.
+
+| Job | Result |
+|---|---|
+| Python service: SQLite and PostgreSQL, plus **real-model speech tests** (Whisper tiny/small downloaded and cached in CI) | ✅ |
+| Frontend: type drift check, 27 tests, build, audit | ✅ |
+| Rust: fmt, clippy, unit tests and supervisor integration | ✅ |
+| **End-to-end on a fresh Ubuntu runner:** release build, spoken push-to-talk command, wake word, echo suppression | ✅ **20/20**, identical to the local run |
+| **Windows x64:** 133 passed / 10 skipped (POSIX, espeak and real-model tests only), **SAPI voice test passed**; Rust tests including the Job Object; frozen-sidecar smoke test confirms `speech_synthesis_engine=sapi, available=True` and the bundled model registry | ✅ |
+
+**Installers (unsigned):**
+- `JACK-AI-Setup-x64.exe`: 112.8 MB, SHA-256 `DCAD1E37…6992150`
+- `JACK-AI-x64.msi`: 113.3 MB, SHA-256 `C3A10128…812E25D9B`
+
+They are larger than in M2 (about 30 MB) because of the speech runtime: CTranslate2, onnxruntime and PyAV. Speech models are not included and are downloaded on request.
+
+The earlier failed run on this branch (`e87b730`) was the shared-types drift check catching a checkpoint commit that changed the API before the regenerated types landed in the next commit. The check worked as intended.
 
 ## 7. What you can try on Windows
 
