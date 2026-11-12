@@ -102,7 +102,8 @@ class FakeAnthropic:
         async def models(request: Request) -> Any:
             if presented_key(request) != VALID_KEY:
                 return error(401, "authentication_error", "invalid API key")
-            data = [{"type": "model", "id": i, "display_name": n, "created_at": "2026-01-01T00:00:00Z",
+            data = [{"type": "model", "id": i, "display_name": n,
+                     "created_at": "2026-01-01T00:00:00Z",
                      "max_input_tokens": 1_000_000, "max_tokens": 128_000}
                     for i, n in (("claude-opus-5-5", "Claude Opus 5.5"),
                                  ("claude-sonnet-5-5", "Claude Sonnet 5.5"),

@@ -296,7 +296,8 @@ def test_settings_validation_and_persistence(tmp_path: Path, token: str, audio: 
     h = {"Authorization": f"Bearer {token}"}
     with TestClient(_app(tmp_path, token, audio, asr, tts, creds), base_url=BASE,
                     headers=h) as c:
-        assert c.patch("/v1/ai/settings", json={"anthropic": {"effort": "turbo"}}).status_code == 422
+        bad_effort = c.patch("/v1/ai/settings", json={"anthropic": {"effort": "turbo"}})
+        assert bad_effort.status_code == 422
         assert c.patch("/v1/ai/settings", json={"limits": {"monthly_usd": "-1"}}).status_code == 422
         assert c.patch("/v1/ai/settings", json={"bogus": {}}).status_code == 422
         c.patch("/v1/ai/settings", json={"anthropic": {"model": "claude-sonnet-5-5"},
