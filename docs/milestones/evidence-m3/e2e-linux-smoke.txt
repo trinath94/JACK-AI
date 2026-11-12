@@ -1,0 +1,22 @@
+PASS  supervisor started bundled sidecar (pid 13807)
+PASS  service started and migrated the database
+PASS  main window shown
+PASS  typed command persisted as task (RECEIVED)
+PASS  global hotkey Ctrl+Shift+Space opened the microphone (source=hotkey)
+PASS  releasing the hotkey closed the microphone after 6064 ms
+PASS  real audio levels arrived from the virtual microphone (no-audio watchdog silent)
+PASS  spoken command recognised and saved as a voice task: "Build a professional corporate website"
+PASS  conversation history recorded (2 turns)
+PASS  service restarted after SIGKILL (old 13807, new 14125)
+PASS  audit records 2 service starts
+PASS  old service tree exited (no orphan after crash)
+PASS  app still running after window close (tray)
+PASS  no service processes after SIGTERM quit
+PASS  wake word standby started after relaunch (setting persisted)
+PASS  spoken "Hey Jack" detected by the wake word engine
+PASS  wake-word command saved as a voice task: "Create a professional company logo"
+PASS  conversation recorded as a wake-word session
+PASS  service shut itself down after the app was SIGKILLed
+PASS  audit chain links intact (linked 14 events)
+----
+passed=20 failed=0

@@ -52,7 +52,7 @@ log = logging.getLogger(__name__)
 
 SETTINGS_KEY = "voice"
 LEVEL_INTERVAL_S = 1 / 15  # throttle level events to 15 Hz
-NO_AUDIO_TIMEOUT_S = 2.0  # a microphone that opens but delivers nothing is reported, not hidden
+NO_AUDIO_TIMEOUT_S = 4.0  # a microphone that opens but delivers nothing is reported, not hidden
 COMMAND_WAIT_S = 6.0  # after "Jack", how long to wait for the command to start
 ECHO_GUARD_S = 0.3  # ignore audio this long after JACK stops speaking
 PTT_TAIL_S = 0.25  # keep capturing briefly after release: people let go as they finish

@@ -114,7 +114,9 @@ export function VoicePage({ shortcut }: { shortcut: string | null }) {
                 : (caps.wake_word_detail ?? undefined)
             }
           />
-          <Range id="sens" label={`Sensitivity: ${s.wake_word_sensitivity.toFixed(2)}`} min={0.1} max={0.9} step={0.05} value={s.wake_word_sensitivity} onChange={(v) => void update({ wake_word_sensitivity: v })} hint="Higher accepts less clear pronunciations (and more false activations). See the evaluation in the Milestone 3 report." />
+          <Range id="sens" label={`Sensitivity: ${s.wake_word_sensitivity.toFixed(2)}`} min={0.1} max={0.9} step={0.05} value={s.wake_word_sensitivity} onChange={(v) => void update({ wake_word_sensitivity: v })} hint={s.wake_word_sensitivity < 0.5
+              ? "Strict: fewest false activations, but often needs “Jack” said clearly. Recommended only for noisy, chatty rooms."
+              : "Balanced (recommended): catches most ways of saying “Jack”; names that sound alike (“Jake”, “Zack”) can occasionally wake JACK."} />
           <p className="text-xs text-[var(--muted)]">Detector: {caps.wake_word_engine === "keyword-asr" ? "local keyword recognition (Whisper tiny.en)" : caps.wake_word_engine}</p>
         </div>
       </Card>

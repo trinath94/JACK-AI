@@ -1,0 +1,13 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.18, pytest-9.2.0, pluggy-1.7.0
+rootdir: /home/user/jack-ai/services/api
+configfile: pyproject.toml
+plugins: anyio-4.16.0, platformdirs-4.14.5
+collected 9 items
+
+tests/test_m3_real_speech.py ....                                        [ 44%]
+tests/test_m3_tts.py .s...                                               [100%]
+
+=========================== short test summary info ============================
+SKIPPED [1] tests/test_m3_tts.py:33: Windows SAPI only
+======================== 8 passed, 1 skipped in 13.99s =========================

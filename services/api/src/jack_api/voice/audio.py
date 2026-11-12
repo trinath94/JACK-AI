@@ -109,7 +109,14 @@ class SoundDeviceBackend:
             raise AudioUnavailable(self._error or "audio backend unavailable")
         sd = self._sd
 
-        def callback(indata: Any, _frames: int, _time: Any, _status: Any) -> None:
+        first = [True]
+
+        def callback(indata: Any, _frames: int, _time: Any, status: Any) -> None:
+            if first[0]:
+                first[0] = False
+                log.info("microphone delivering audio")
+            if status:
+                log.debug("PortAudio input status: %s", status)
             # Copy: PortAudio reuses the buffer after the callback returns.
             on_frame(np.frombuffer(bytes(indata), dtype=np.int16).copy())
 
@@ -122,4 +129,6 @@ class SoundDeviceBackend:
             stream.start()
         except Exception as exc:  # noqa: BLE001 - PortAudioError and driver errors
             raise AudioUnavailable(f"could not open microphone: {exc}") from exc
+        log.info("microphone opened: %s (latency %.0f ms)",
+                 device.id if device else "system default", 1000 * float(stream.latency))
         return stream  # type: ignore[no-any-return]

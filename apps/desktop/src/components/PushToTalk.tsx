@@ -1,5 +1,5 @@
 import { Mic, MicOff } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useBackend } from "../lib/backend";
 
 /**
@@ -10,6 +10,7 @@ import { useBackend } from "../lib/backend";
 export function PushToTalk({ shortcut }: { shortcut: string | null }) {
   const { voice, startPtt, stopPtt, socket } = useBackend();
   const held = useRef(false);
+  const [pressed, setPressed] = useState(false);
   const listening = voice?.state === "listening";
   const reason = !voice
     ? "Service not connected"
@@ -25,11 +26,13 @@ export function PushToTalk({ shortcut }: { shortcut: string | null }) {
   const press = () => {
     if (disabled || held.current) return;
     held.current = true;
+    setPressed(true);
     void startPtt();
   };
   const release = () => {
     if (!held.current) return;
     held.current = false;
+    setPressed(false);
     void stopPtt();
   };
 
@@ -66,7 +69,11 @@ export function PushToTalk({ shortcut }: { shortcut: string | null }) {
         }`}
       >
         {disabled ? <MicOff className="h-4 w-4" aria-hidden /> : <Mic className="h-4 w-4" aria-hidden />}
-        {listening ? "Listening — release to stop" : "Hold to talk"}
+        {listening && pressed
+          ? "Listening — release to stop"
+          : listening
+            ? "Listening for your command…"
+            : "Hold to talk"}
       </button>
       <p className="text-xs text-[var(--muted)]">
         {reason ?? (shortcut ? `or hold ${shortcut} anywhere` : "Hold the button while speaking")}

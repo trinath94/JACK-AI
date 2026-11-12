@@ -5,6 +5,30 @@ versioning: [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+### Added — Milestone 3 (wake word and speech)
+- Local speech pipeline: 80 Hz high-pass filter, streaming Silero VAD v6, utterance
+  segmentation, Whisper speech recognition (faster-whisper, int8, `tiny.en` / `base.en` /
+  `small.en`). Models download only when you ask, then work offline.
+- Wake word **"Jack" / "Hey Jack"** (engine `keyword-asr`): standby listening, "Yes, I'm
+  listening" then the command, or the command in one breath ("Jack, open GitHub"); two-tier
+  sensitivity with a sound-alike veto; evaluation harness and report.
+- Spoken commands, by push-to-talk or wake word, become voice tasks; JACK replies with what it
+  did and says that execution comes later.
+- Spoken replies: Windows SAPI voices (espeak-ng on Linux for development), voice and speed
+  selection, test and stop, interrupted by push-to-talk; JACK ignores its own voice.
+- Conversation history (migration 0003): text only, retention (30 days default), opt-out,
+  clear; never in privacy mode.
+- Voice page: speech models, recognition, wake word, spoken replies, history; dashboard shows
+  the last exchange; tray shows "listening for Jack".
+- CI: real-model speech tests (Silero + Whisper on synthesised speech), e2e with spoken
+  commands and the wake word on the release build, Windows SAPI test.
+
+### Fixed
+- Push-to-talk clipped the last word when the key was released as speech ended (the queue is
+  now drained and a 250 ms tail captured); found by a real-model test.
+- espeak-ng reported success with no audio device; playback failures are now reported.
+- The no-audio watchdog allows 4 s for slow audio drivers to start.
+
 ### Added — Milestone 2 (dashboard and voice interface)
 - Voice engine: push-to-talk microphone capture through PortAudio with a live input level. Audio
   is reduced to a level and discarded immediately. Microphones are selected by a stable id; the

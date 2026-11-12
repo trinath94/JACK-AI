@@ -55,7 +55,8 @@ migration of the milestone noted.
 | `release_records` | id, project_id, version, git_sha, artifact_path, artifact_sha256, created_at | M13 |
 | `backups` | id, server_id, kind(config/db), location, sha256, size_bytes, created_at, expires_at | M13 |
 | `creative_assets` | id, project_id?, provider_id, prompt, params JSON, file_path, sha256, cost_usd | M14 |
-| `voice_sessions` | id, started_at, ended_at, wake_word, asr_engine, transcript (retention-limited), task_id? | M3 |
+| `voice_sessions` | id, trigger(ptt/wake), started_at, ended_at, task_id? | **M3** (migration 0003) |
+| `voice_turns` | id, session_id, role(user/jack), text, created_at — text only, never audio; not written in privacy mode or with history off; purged after `history_retention_days` | **M3** (migration 0003) |
 
 ## 3. Task state machine (enforced in code, M1)
 

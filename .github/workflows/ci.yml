@@ -46,6 +46,19 @@ jobs:
         env:
           JACK_TEST_DATABASE_URL: postgresql+psycopg://postgres:jacktest@127.0.0.1:5432/postgres
         run: uv run pytest -q --junitxml=../../reports/service-postgres.xml
+      - name: Speech tools for real-model tests
+        run: sudo apt-get update && sudo apt-get install -y espeak-ng sox
+      - name: Cache speech models
+        uses: actions/cache@v4
+        with:
+          path: ~/jack-models
+          key: whisper-tiny.en-small.en-v1
+      - name: Download speech models
+        run: uv run python ../../scripts/download_models.py ~/jack-models tiny.en small.en
+      - name: Real-model speech tests (Silero VAD + Whisper on espeak-ng speech)
+        env:
+          JACK_TEST_MODELS_DIR: /home/runner/jack-models
+        run: uv run pytest -v tests/test_m3_real_speech.py tests/test_m3_tts.py
       - name: Dependency audit
         run: uv run pip-audit --skip-editable
       - uses: actions/upload-artifact@v4
@@ -128,7 +141,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev \
             xvfb openbox wmctrl xdotool imagemagick dbus-x11 \
-            pulseaudio pulseaudio-utils libasound2-plugins alsa-utils sox libportaudio2
+            pulseaudio pulseaudio-utils libasound2-plugins alsa-utils sox libportaudio2 espeak-ng
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -143,11 +156,18 @@ jobs:
           workspaces: apps/desktop/src-tauri
       - run: pnpm install --frozen-lockfile
       - run: uv run --locked --project services/api python scripts/build_sidecar.py
+      - name: Cache speech models
+        uses: actions/cache@v4
+        with:
+          path: ~/jack-models
+          key: whisper-tiny.en-small.en-v1
+      - name: Download speech models
+        run: uv run --locked --project services/api python scripts/download_models.py ~/jack-models tiny.en small.en
       - name: Release build
         working-directory: apps/desktop
         run: pnpm tauri build --bundles deb
       - name: Smoke test
-        run: VOICE_E2E=1 tests/e2e/linux_smoke.sh apps/desktop/src-tauri/target/release/jack-ai e2e-out
+        run: VOICE_E2E=1 JACK_MODELS_DIR=$HOME/jack-models tests/e2e/linux_smoke.sh apps/desktop/src-tauri/target/release/jack-ai e2e-out
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -177,9 +197,9 @@ jobs:
         with:
           workspaces: apps/desktop/src-tauri
       - run: pnpm install --frozen-lockfile
-      - name: Service tests on Windows
+      - name: Service tests on Windows (includes SAPI text-to-speech)
         working-directory: services/api
-        run: uv run --locked pytest -q
+        run: uv run --locked pytest -q -rs
       - name: Build service sidecar (jack-service.exe)
         run: uv run --locked --project services/api python scripts/build_sidecar.py
       - name: Frozen sidecar smoke test (PortAudio and psutil bundled)
@@ -201,6 +221,11 @@ jobs:
             "CPU $($metrics.cpu_percent)% / memory $($metrics.memory_percent)%" | Write-Host
             if ("$($voice.capabilities.capture_detail)" -like "PortAudio not available*") { throw "PortAudio was not bundled into jack-service.exe" }
             if ($metrics.memory_total_bytes -le 0) { throw "psutil metrics missing" }
+            # Speech stack (M3): VAD model, CTranslate2 and SAPI must be inside the frozen exe.
+            $models = Invoke-RestMethod http://127.0.0.1:48765/v1/voice/models -Headers $h
+            if ($models.Count -ne 3) { throw "speech model registry missing" }
+            "TTS engine: $($voice.capabilities.speech_synthesis_engine) available=$($voice.capabilities.speech_synthesis) $($voice.capabilities.speech_synthesis_detail)" | Write-Host
+            if ($voice.capabilities.speech_synthesis_engine -ne "sapi") { throw "SAPI text-to-speech not selected" }
           } finally { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue }
       - name: Rust tests on Windows (includes Job Object supervisor test)
         working-directory: apps/desktop/src-tauri

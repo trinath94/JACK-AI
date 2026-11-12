@@ -46,12 +46,22 @@ def main() -> int:
         # Alembic loads env.py and revision files from disk by path.
         "--add-data", f"{migrations}{sep}jack_api/migrations",
         "--collect-submodules", "uvicorn",
+        # Speech stack (M3): native libraries and model assets are not found by import
+        # analysis alone.
+        "--collect-all", "ctranslate2",
+        "--collect-data", "faster_whisper",  # bundled Silero VAD model
+        "--collect-binaries", "onnxruntime",
+        "--collect-data", "onnxruntime",
+        "--collect-all", "tokenizers",
+        "--collect-binaries", "av",
         "--hidden-import", "jack_api.app",
         # Console subsystem on purpose: the supervisor spawns with CREATE_NO_WINDOW, and a
         # windowed build would leave sys.stderr = None and break logging.
         "--console",
         str(API / "src" / "jack_api" / "__main__.py"),
     ]
+    if sys.platform == "win32":
+        cmd[-1:-1] = ["--collect-submodules", "comtypes"]  # SAPI text-to-speech via COM
     print("+", " ".join(cmd), flush=True)
     subprocess.run(cmd, check=True, cwd=API)
 

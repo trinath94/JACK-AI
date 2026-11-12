@@ -6,6 +6,13 @@ Detectors are pluggable. Shipped engine:
   transcribed locally with Whisper tiny.en and matched against the wake phrase. Uses only
   MIT-licensed code and weights, so it can ship commercially.
 
+  Sensitivity (evaluated in docs/milestones/evidence-m3/wakeword-eval.md):
+    < 0.5  strict   — plain transcription. Few false activations, many misses.
+    >= 0.5 default  — transcription is biased toward "Hey Jack" with Whisper's prompt
+                      (misses drop from ~42% to ~13% on synthetic speech), then a second,
+                      unbiased pass vetoes candidates where a competing word ("Jake",
+                      "Zack", "Jackson", ...) sits in the wake position.
+
 Not shipped: an openWakeWord engine. openWakeWord's code is Apache-2.0, but its pre-trained
 models are CC BY-NC-SA 4.0 (non-commercial) and none exists for "Jack". It needs a custom
 trained model (decision D-3); the ``WakeDetector`` protocol is the slot it plugs into.
@@ -23,6 +30,13 @@ from jack_api.voice.asr import WAKE_MODEL, Recognizer
 from jack_api.voice.audio import SAMPLE_RATE
 
 WAKE_WINDOW_S = 2.5
+WAKE_PROMPT = "Hey Jack."
+PROMPTED_FROM = 0.5  # sensitivity at which the biased (high-recall) pass is used
+# Words that sound like "Jack" to a small model; seen in the unbiased pass they veto a wake.
+COMPETING_WORDS = frozenset({
+    "jake", "jakes", "zack", "zach", "zak", "jackson", "jacqueline", "jacket", "jackets",
+    "jackpot", "check", "chuck", "jeff", "jacks", "jack's",
+})
 GREETINGS = ("hey", "hi", "ok", "okay", "hello", "yo")
 BASE_WORDS = ("jack",)
 LOOSE_WORDS = ("jacks", "jack's", "jak", "jac")  # common mis-transcriptions
@@ -69,6 +83,14 @@ def split_wake(text: str, sensitivity: float) -> tuple[bool, str]:
     return True, m.group("rest").strip()
 
 
+def competing_word(text: str) -> str | None:
+    """The word in the wake position if it is a known sound-alike, else None."""
+    greet = "|".join(GREETINGS)
+    m = re.match(rf"^\W*(?:(?:{greet})\W+)?([\w']+)", text.strip(), re.IGNORECASE)
+    word = m.group(1).lower() if m else ""
+    return word if word in COMPETING_WORDS else None
+
+
 def confidence_ok(avg_logprob: float, no_speech_prob: float, sensitivity: float) -> bool:
     """Higher sensitivity accepts less confident transcriptions."""
     return avg_logprob >= -(0.4 + 1.6 * sensitivity) and no_speech_prob <= 0.5 + 0.4 * sensitivity
@@ -87,10 +109,16 @@ class KeywordAsrDetector:
 
     def check(self, audio: np.ndarray, sensitivity: float) -> WakeDecision:
         window = audio[: int(WAKE_WINDOW_S * SAMPLE_RATE)]
-        t = self._asr.transcribe(window, WAKE_MODEL)
+        biased = sensitivity >= PROMPTED_FROM
+        t = self._asr.transcribe(window, WAKE_MODEL, prompt=WAKE_PROMPT if biased else None)
         matched, rest = split_wake(t.text, sensitivity)
         if not matched:
             return WakeDecision(False, t.text, "", "no wake phrase")
         if not confidence_ok(t.avg_logprob, t.no_speech_prob, sensitivity):
             return WakeDecision(False, t.text, "", "low confidence")
+        if biased:
+            plain = self._asr.transcribe(window, WAKE_MODEL)
+            rival = competing_word(plain.text)
+            if rival:
+                return WakeDecision(False, plain.text, "", f"competing word '{rival}'")
         return WakeDecision(True, t.text, rest, "matched")

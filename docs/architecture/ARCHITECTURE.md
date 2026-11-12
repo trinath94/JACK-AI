@@ -65,7 +65,7 @@ and — with explicit human approval where policy requires — deployed and veri
 │  agents         17 agent definitions, schemas, tool allow-lists (M7)          │
 │  tool-executor  policy engine + tool adapters (git, ssh, docker, pwsh…)       │
 │  project-memory indexing, semantic search (pgvector) (M8)                     │
-│  voice          wake word (openWakeWord), VAD, ASR (Whisper), TTS (M3)        │
+│  voice          wake word (keyword-asr), Silero VAD, Whisper ASR, TTS (M3)    │
 │  integrations   GitHub, Anthropic, Claude Code, image providers…              │
 └──────┬───────────────────────────────┬─────────────────────────────────────┘
        │                               │
@@ -176,6 +176,27 @@ scripts installer docker .github/workflows
 Routing: reasoning/orchestration → API provider; repository coding sessions → Claude Code
 where configured. Fallbacks only if the user has configured them, and a fallback that changes
 cost or data-handling requires a confirmation recorded in `approvals`.
+
+## 6a. Voice pipeline (implemented in M2–M3)
+
+```
+PortAudio callback ──frames(32 ms)──▶ queue ──▶ voice worker thread
+   high-pass 80 Hz → Silero VAD v6 → ┬─ push-to-talk buffer (+250 ms release tail)
+                                     ├─ standby: segmenter → wake detector (tiny.en)
+                                     └─ command window: segmenter (end-of-speech pause)
+   → Whisper (small.en default, local, int8) → command → task (source=voice)
+   → reply → TTS (SAPI on Windows) — half-duplex: frames discarded while speaking
+```
+
+* All audio stays in memory on this machine. Only transcript text is stored (history),
+  never in privacy mode or with history off.
+* **Wake word engine `keyword-asr`** (shipped): openWakeWord's pre-trained models are
+  non-commercial and none exists for "Jack", so JACK detects the wake phrase with a small
+  local speech model instead. It has a two-tier sensitivity: a biased high-recall pass plus a
+  sound-alike veto. The design and its measured trade-off are in the M3 report. A dedicated
+  openWakeWord model can be plugged in behind the same `WakeDetector` protocol (decision D-3).
+* Models: downloaded only on user request into `%LOCALAPPDATA%\ai.jack.desktop\models`,
+  loaded with `local_files_only`.
 
 ## 7. Task model (summary)
 

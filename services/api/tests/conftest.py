@@ -99,6 +99,8 @@ class FakeRecognizer:
         self.models = {"tiny.en", "small.en"}
         self.script: dict[str, list[str]] = {"tiny.en": [], "small.en": []}
         self.calls: list[tuple[str, float]] = []
+        self.prompts: list[str | None] = []
+        self.plain: dict[str, str] = {}  # unbiased-pass transcript overrides, keyed by model
         self.logprob = -0.3
 
     def available(self, model: str) -> bool:
@@ -107,6 +109,9 @@ class FakeRecognizer:
     def transcribe(self, audio: np.ndarray, model: str, *, prompt: str | None = None
                    ) -> Transcript:
         self.calls.append((model, audio.shape[0] / 16000))
+        self.prompts.append(prompt)
+        if prompt is None and model in self.plain:
+            return Transcript(self.plain[model], self.logprob, 0.05)
         queue = self.script.get(model) or [""]
         text = queue.pop(0) if len(queue) > 1 else queue[0]
         return Transcript(text, self.logprob, 0.05)

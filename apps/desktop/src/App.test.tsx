@@ -237,6 +237,11 @@ describe("Voice", () => {
       ws.emit("voice.state", { state: "standby" });
     });
     expect(await screen.findByText(/Wake word "Jack": listening/)).toBeInTheDocument();
+    // After "Jack", JACK listens without the button being held: don't tell the user to release it.
+    act(() => ws.emit("voice.state", { state: "listening" }));
+    expect(await screen.findByRole("button", { name: /Listening for your command/ })).toBeInTheDocument();
+    expect(screen.queryByText(/release to stop/)).not.toBeInTheDocument();
+    act(() => ws.emit("voice.state", { state: "standby" }));
     expect(screen.getByTestId("voice-status")).toHaveTextContent("wake word on");
     expect(screen.getByTestId("voice-orb")).toHaveAttribute("data-state", "standby");
   });

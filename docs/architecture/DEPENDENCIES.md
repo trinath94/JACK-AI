@@ -22,9 +22,17 @@ files at the time of writing; re-verify before each release (`scripts/licence-re
 | Temporal CLI (dev server) | 1.x | MIT | Sidecar, M6 |
 | PostgreSQL (embedded) | 16.x | PostgreSQL Licence | M6, pending D-1 |
 | pgvector | 0.8.x | PostgreSQL Licence | M8 |
-| openWakeWord | 0.6.x | Apache-2.0 (code). **Pre-trained models: CC BY-NC-SA 4.0 — not usable commercially.** JACK must ship a custom-trained "jack" model | M3, D-3 |
-| faster-whisper / CTranslate2 | 1.x / 4.x | MIT | M3. Whisper model weights MIT |
-| Silero VAD | 5.x | MIT | M3 |
+| openWakeWord | 0.6.x | Apache-2.0 (code). **Pre-trained models: CC BY-NC-SA 4.0 — not usable commercially**, and none exists for "Jack" | **Not shipped.** M3 ships the `keyword-asr` wake-word engine instead; openWakeWord needs a custom-trained model (D-3) |
+| faster-whisper / CTranslate2 | 1.2.1 / 4.9.0 | MIT / MIT | **M3** speech recognition |
+| Whisper models `tiny.en`, `base.en`, `small.en` (CTranslate2 conversions, `Systran/faster-whisper-*`) | – | MIT | **Downloaded on user request**, not bundled (75–484 MB each) |
+| Silero VAD v6 (ONNX, bundled inside faster-whisper) | 6 | MIT | **M3** voice activity detection |
+| onnxruntime | 1.31.1 | MIT | M3, runs Silero VAD |
+| PyAV | 18.1.0 (pinned: faster-whisper 1.2.1 is incompatible with 19) | BSD-3; bundled FFmpeg libraries are **LGPL-2.1**, dynamically linked | M3, faster-whisper dependency |
+| tokenizers, huggingface_hub | 0.23 / 2.4 | Apache-2.0 | M3 |
+| numpy | 2.5.4 | BSD-3 | M3 |
+| comtypes | 1.5.0 | MIT | M3, Windows SAPI text-to-speech (Windows only) |
+| Windows SAPI 5 voices | OS component | Microsoft (part of Windows) | M3 spoken replies; not redistributed |
+| espeak-ng | system package | GPL-3.0 | **Development and CI only** (Linux text-to-speech and synthetic test speech); called as a separate program, never bundled |
 | Playwright (Python) + Chromium | 1.x | Apache-2.0; Chromium BSD | M15. Browsers downloaded on first use, not bundled, to keep installer size down |
 | Anthropic Python SDK | 2.x | MIT | M4 |
 | paramiko / asyncssh | – | LGPL-2.1 / EPL-2.0 | M10 — prefer **asyncssh (EPL-2.0 / GPL-2.0+)**, dynamic use only; final choice recorded in M10 |

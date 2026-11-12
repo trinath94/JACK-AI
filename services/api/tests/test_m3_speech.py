@@ -144,7 +144,9 @@ def test_wake_with_inline_command(client: TestClient, audio: FakeAudio,
     wait_for(lambda: engine.last_result is not None)
     assert engine.last_result.transcript == "build a professional corporate website"
     assert "Yes, I'm listening." not in tts.spoken  # went straight to the command
-    assert [m for m, _ in asr.calls] == ["tiny.en", "small.en"]
+    # Biased wake pass, unbiased veto pass, then the command model on the whole utterance.
+    assert [m for m, _ in asr.calls] == ["tiny.en", "tiny.en", "small.en"]
+    assert asr.prompts[:2] == ["Hey Jack.", None]
     assert asr.calls[0][1] <= 2.5  # wake check only looks at the start of the utterance
 
 
@@ -422,3 +424,37 @@ def test_tts_failure_is_reported(client: TestClient, audio: FakeAudio, asr: Fake
     u = _say_ptt(client, audio)
     assert u.task_id  # the command still went through
     assert _engine(client).state.value == "idle"
+
+
+def test_sound_alike_vetoes_biased_wake(client: TestClient, audio: FakeAudio,
+                                        asr: FakeRecognizer, tts: FakeTts) -> None:
+    """The biased pass hears "Hey Jack", but the unbiased pass says "Hey Jake": no wake."""
+    asr.script["tiny.en"] = ["Hey Jack, how are you?"]
+    asr.plain["tiny.en"] = "Hey Jake, how are you?"
+    _enable_wake(client, audio)
+    audio.speech(0.8)
+    audio.silence(0.7)
+    wait_for(lambda: len(asr.calls) == 2)
+    time.sleep(0.2)
+    assert tts.spoken == []
+
+
+def test_strict_sensitivity_uses_unbiased_pass_only(client: TestClient, audio: FakeAudio,
+                                                    asr: FakeRecognizer, tts: FakeTts) -> None:
+    asr.script["tiny.en"] = ["Jack."]
+    client.patch("/v1/voice/settings", json={"wake_word_sensitivity": 0.3})
+    _enable_wake(client, audio)
+    audio.speech(0.5)
+    audio.silence(0.7)
+    wait_for(lambda: tts.spoken)
+    assert asr.prompts == [None]
+
+
+@pytest.mark.parametrize("text,word", [("Hey Jake, how are you", "jake"),
+                                       ("Jackson will join", "jackson"),
+                                       ("Hey, Zack!", "zack"), ("Hey Jack", None),
+                                       ("Doc.", None)])
+def test_competing_word(text: str, word: str | None) -> None:
+    from jack_api.voice.wakeword import competing_word
+
+    assert competing_word(text) == word

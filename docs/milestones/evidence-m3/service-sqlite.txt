@@ -1,0 +1,25 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.18, pytest-9.2.0, pluggy-1.7.0
+rootdir: /home/user/jack-ai/services/api
+configfile: pyproject.toml
+testpaths: tests
+plugins: anyio-4.16.0, platformdirs-4.14.5
+collected 143 items
+
+tests/test_lifeline.py ....                                              [  2%]
+tests/test_m2_notifications_metrics.py ........                          [  8%]
+tests/test_m2_voice.py .....................                             [ 23%]
+tests/test_m3_real_speech.py ssss                                        [ 25%]
+tests/test_m3_speech.py ................................................ [ 59%]
+..                                                                       [ 60%]
+tests/test_m3_tts.py .s...                                               [ 64%]
+tests/test_security.py ..................................                [ 88%]
+tests/test_tasks_and_audit.py .................                          [100%]
+
+=========================== short test summary info ============================
+SKIPPED [1] tests/test_m3_real_speech.py:71: needs JACK_TEST_MODELS_DIR (tiny.en, small.en) and espeak-ng
+SKIPPED [1] tests/test_m3_real_speech.py:82: needs JACK_TEST_MODELS_DIR (tiny.en, small.en) and espeak-ng
+SKIPPED [1] tests/test_m3_real_speech.py:98: needs JACK_TEST_MODELS_DIR (tiny.en, small.en) and espeak-ng
+SKIPPED [1] tests/test_m3_real_speech.py:109: needs JACK_TEST_MODELS_DIR (tiny.en, small.en) and espeak-ng
+SKIPPED [1] tests/test_m3_tts.py:33: Windows SAPI only
+======================= 138 passed, 5 skipped in 22.60s ========================
