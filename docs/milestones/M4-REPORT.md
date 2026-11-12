@@ -54,7 +54,7 @@ The first successful real call will be yours: Usage and Billing → paste a key 
 | `pnpm audit --prod` | no known vulnerabilities | [pnpm-audit.txt](evidence-m4/pnpm-audit.txt) |
 | **Real `api.anthropic.com`, frozen sidecar, deliberately invalid key** | messages → `auth` "The Anthropic API key was rejected"; models → `ai_auth`; key in log: 0 | [real-api-auth-check.txt](evidence-m4/real-api-auth-check.txt) |
 | **End-to-end, release build (M1 + voice + AI)** | **25/25 passed** | [e2e-linux-smoke.txt](evidence-m4/e2e-linux-smoke.txt) |
-| GitHub Actions CI | _see §6_ | |
+| GitHub Actions CI | **5/5 jobs green** (§6) | [run 43306633583](https://github.com/trinath94/jack-ai/actions/runs/43306633583) |
 
 ### What the AI tests prove (24 service tests and 5 e2e checks)
 
@@ -120,7 +120,17 @@ The first successful real call will be yours: Usage and Billing → paste a key 
 
 ## 6. CI
 
-_Filled in after the run on this branch._
+[Run 43306633583](https://github.com/trinath94/jack-ai/actions/runs/43306633583) on commit `8bc2539`: **all 5 jobs passed.**
+
+| Job | Result |
+|---|---|
+| Python service (SQLite + PostgreSQL, ruff, mypy, pip-audit, real-model speech 7 passed) | ✅ |
+| Frontend (type drift check, `tsc`, 35 tests, build) | ✅ |
+| Rust core (fmt, clippy, tests incl. supervisor integration) | ✅ |
+| End-to-end, Linux release build (virtual display + microphone + fake Anthropic API) | ✅ **25/25 PASS** |
+| Windows x64 (service tests incl. the Credential Manager round trip, frozen sidecar smoke, NSIS + MSI) | ✅ frozen `jack-service.exe` reports `Credential store: keyring.backends.Windows.WinVaultKeyring secure=True` |
+
+The first run of this branch ([43304157506](https://github.com/trinath94/jack-ai/actions/runs/43304157506)) failed the e2e at 22/25; that was defect 5 in §4, fixed in `8bc2539`. The installers are unsigned (no signing certificate configured).
 
 ## 7. How to finish verification on Windows
 
