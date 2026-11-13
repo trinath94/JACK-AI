@@ -45,8 +45,10 @@ def test_spoken_command_becomes_voice_task_and_reply(
     task = _tasks(client)[0]
     assert task["id"] == u.task_id and task["source"] == "voice"
     assert task["command_text"] == "Build a professional corporate website"
-    assert tts.spoken[-1].startswith("Got it. I've added")
-    assert "later version" in tts.spoken[-1]  # honest: no execution yet
+    # Milestone 5: the command starts requirement discovery and JACK asks its first question
+    # ("corporate" already told it the purpose and kind of site).
+    assert tts.spoken[-1].startswith("Certainly. I'll handle the development of the website.")
+    assert "What's the business called?" in tts.spoken[-1]
 
 
 def test_ptt_strips_spoken_wake_phrase(client: TestClient, audio: FakeAudio,

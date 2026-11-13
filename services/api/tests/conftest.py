@@ -202,6 +202,8 @@ def client(settings: Settings, token: str, audio: FakeAudio, asr: FakeRecognizer
     app = create_app(settings, audio_backend=audio, recognizer=asr, tts=tts,
                      vad_factory=FakeVad)
     with TestClient(app, base_url=BASE, headers={"Authorization": f"Bearer {token}"}) as c:
+        # After a question JACK listens for the answer; keep that window short in tests.
+        app.state.svc.voice.followup_wait_s = 0.3
         yield c
 
 

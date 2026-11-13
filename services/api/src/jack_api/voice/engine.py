@@ -54,6 +54,7 @@ SETTINGS_KEY = "voice"
 LEVEL_INTERVAL_S = 1 / 15  # throttle level events to 15 Hz
 NO_AUDIO_TIMEOUT_S = 4.0  # a microphone that opens but delivers nothing is reported, not hidden
 COMMAND_WAIT_S = 6.0  # after "Jack", how long to wait for the command to start
+FOLLOWUP_WAIT_S = 8.0  # after JACK asks a question, how long to wait for the answer to start
 ECHO_GUARD_S = 0.3  # ignore audio this long after JACK stops speaking
 PTT_TAIL_S = 0.25  # keep capturing briefly after release: people let go as they finish
 QUEUE_FRAMES = 400  # ~13 s of 32 ms frames
@@ -61,7 +62,15 @@ WAKE_SEGMENT_MAX_S = 12.0
 
 Publisher = Callable[[str, Any], None]
 Notifier = Callable[[str, str, str | None], object]  # (kind, title, body): warning notification
-CommandHandler = Callable[[str], tuple[str, str]]  # transcript -> (task_id, task_title)
+@dataclass
+class CommandResult:
+    """What the command handler (requirement discovery) made of a transcript."""
+    task_id: str | None
+    reply: str
+    listen: bool = False  # JACK asked a question: keep listening for the answer
+
+
+CommandHandler = Callable[[str], CommandResult]
 
 ASR_MODEL_CHOICES = Literal["tiny.en", "base.en", "small.en"]
 
@@ -149,7 +158,7 @@ class PttStopped:
     processing: bool
 
 
-Mode = Literal["none", "ptt", "ptt_closing", "wake_command"]
+Mode = Literal["none", "ptt", "ptt_closing", "wake_command", "followup"]
 
 
 class VoiceEngine:
@@ -174,6 +183,7 @@ class VoiceEngine:
         self._clock = clock
         self.no_audio_timeout_s = NO_AUDIO_TIMEOUT_S
         self.command_wait_s = COMMAND_WAIT_S
+        self.followup_wait_s = FOLLOWUP_WAIT_S
 
         self._lock = threading.RLock()
         self._settings = store.get(SETTINGS_KEY, VoiceSettings)
@@ -508,13 +518,14 @@ class VoiceEngine:
             if prob >= 0.5:
                 self._ptt_voiced += 1
             self._emit_level(raw)
-        elif self._mode == "wake_command":
+        elif self._mode in ("wake_command", "followup"):
             self._emit_level(raw)
             seg = self._seg.push(f, prob)
             if seg is not None:
+                trigger = "followup" if self._mode == "followup" else "wake"
                 self._mode = "none"
                 self._set_state(VoiceState.PROCESSING)
-                self._jobs_put(("command", seg, "wake"))
+                self._jobs_put(("command", seg, trigger))
         elif self._state is VoiceState.STANDBY:
             seg = self._seg.push(f, prob)
             if seg is not None:
@@ -553,6 +564,14 @@ class VoiceEngine:
                 now - self._mode_started >= self.command_wait_s:
             self._mode = "none"
             self._jobs_put(("reply_only", "I didn't hear a command.", "wake"))
+        elif self._mode == "followup" and not self._seg.in_speech and \
+                now - self._mode_started >= self.followup_wait_s:
+            # No answer: stop listening quietly. The question stays open; the user can answer
+            # later with push-to-talk, the wake word, or on the Requirements page.
+            self._mode = "none"
+            self._audit.record("voice.followup.end", outcome="info", actor_type="system",
+                               details={"answered": False})
+            self._jobs_put(("end",))
 
     # ================================================================== internals: jobs
     def _handle_job(self, job: tuple[Any, ...]) -> None:
@@ -565,7 +584,8 @@ class VoiceEngine:
             self._handle_wake(job[1])
         elif kind == "command":
             seg: Segment = job[1]
-            self._handle_command_audio(seg.audio, "wake", int(seg.duration_s * 1000),
+            trigger = job[2] if len(job) > 2 else "wake"
+            self._handle_command_audio(seg.audio, trigger, int(seg.duration_s * 1000),
                                        "end_of_speech" if not seg.truncated else "max_duration",
                                        strip_wake=True)
         elif kind == "reply_only":
@@ -573,6 +593,8 @@ class VoiceEngine:
             self._finish()
         elif kind == "say":
             self._reply(job[1])
+            self._finish()
+        elif kind == "end":
             self._finish()
 
     def _handle_ptt(self, audio: np.ndarray, voiced: int, captured_ms: int, reason: str) -> None:
@@ -629,16 +651,21 @@ class VoiceEngine:
                                      "Sorry, I didn't catch that.", reason, None), speak=True)
             return
         task_id: str | None = None
+        listen = False
         if self._on_command is not None:
-            task_id, title = self._on_command(text)
-            reply = (f"Got it. I've added “{_short(title)}” to your tasks. Planning "
-                     "and carrying out tasks comes in a later version.")
+            try:
+                result = self._on_command(text)
+            except Exception:  # noqa: BLE001 - a handler failure must not break the voice loop
+                log.exception("command handler failed")
+                result = CommandResult(None, "Sorry, something went wrong handling that. "
+                                             "It's been logged.")
+            task_id, reply, listen = result.task_id, result.reply, result.listen
         else:
             reply = "Got it."
         self._complete(Utterance(trigger, captured_ms, True, text, reply, reason, task_id),
-                       speak=True)
+                       speak=True, follow_up=listen)
 
-    def _complete(self, u: Utterance, *, speak: bool) -> None:
+    def _complete(self, u: Utterance, *, speak: bool, follow_up: bool = False) -> None:
         self.last_result = u
         self._publish("voice.utterance", asdict(u))
         if self._settings.keep_history and not self._settings.privacy_mode and \
@@ -650,7 +677,32 @@ class VoiceEngine:
             self._history.end(sid, u.task_id)
         if speak:
             self._reply(u.reply)
+        if follow_up and self._start_followup():
+            return
         self._finish()
+
+    def _start_followup(self) -> bool:
+        """After a question, listen for the answer without the wake word (Section 4: one
+        question at a time). Never in privacy mode or when muted."""
+        with self._lock:
+            s = self._settings
+            if s.muted or s.privacy_mode or self._mode == "ptt" or \
+                    not self.capabilities().capture:
+                return False
+            try:
+                self._open_stream_if_needed(source="followup")
+            except VoiceBlocked as exc:
+                self._report_error(exc.code, str(exc))
+                return False
+            self._drain()
+            if self._vad is not None:
+                self._vad.reset()
+            self._ignore_until = self._clock() + ECHO_GUARD_S
+            self._begin_mode("followup", "followup")
+            self._audit.record("voice.followup.start", outcome="info", actor_type="system",
+                               details={"wait_s": self.followup_wait_s})
+            self._publish("voice.followup", {"wait_s": self.followup_wait_s})
+            return True
 
     def _reply(self, text: str) -> None:
         self._publish("voice.reply", {"text": text})
@@ -681,10 +733,6 @@ class VoiceEngine:
             if self._vad is not None:
                 self._vad.reset()
             self._settle(force=True)
-
-
-def _short(title: str, n: int = 60) -> str:
-    return title if len(title) <= n else title[: n - 1].rstrip() + "…"
 
 
 __all__ = ["MODELS", "WAKE_MODEL", "VoiceEngine", "VoiceSettings", "VoiceSettingsPatch",

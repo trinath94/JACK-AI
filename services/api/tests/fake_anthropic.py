@@ -28,6 +28,7 @@ class FakeAnthropic:
     def __init__(self) -> None:
         self.mode = "ok"  # ok | rate_limit | server_error | refusal | fallback
         self.reply = "OK"
+        self.replies: list[str] = []  # queued replies (e.g. JSON), used before ``reply``
         self.usage = {"input_tokens": 12, "output_tokens": 5,
                       "cache_read_input_tokens": 0, "cache_creation_input_tokens": 0}
         self.requests: list[dict[str, Any]] = []
@@ -72,7 +73,8 @@ class FakeAnthropic:
             if self.mode == "server_error":
                 return error(500, "api_error", "boom")
             model = body["model"]
-            content: list[dict[str, Any]] = [{"type": "text", "text": self.reply}]
+            text = self.replies.pop(0) if self.replies else self.reply
+            content: list[dict[str, Any]] = [{"type": "text", "text": text}]
             usage: dict[str, Any] = dict(self.usage)
             stop_reason, stop_details = "end_turn", None
             served = model

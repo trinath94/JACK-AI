@@ -28,6 +28,7 @@ from jack_api.ai.service import AIService
 from jack_api.audit import AuditLog
 from jack_api.config import VERSION, Settings
 from jack_api.db import Database, Device, utcnow
+from jack_api.discovery.engine import DiscoveryEngine
 from jack_api.health import (
     HealthRegistry,
     ProbeResult,
@@ -39,6 +40,7 @@ from jack_api.metrics import SystemMetrics
 from jack_api.notifications import NotificationCentre
 from jack_api.redaction import register_secret
 from jack_api.routes_ai import router as ai_router
+from jack_api.routes_discovery import router as discovery_router
 from jack_api.routes_m2 import router as m2_router
 from jack_api.routes_voice import router as voice_router
 from jack_api.security import LoopbackAuthMiddleware, token_matches
@@ -46,7 +48,7 @@ from jack_api.settings_store import SettingsStore
 from jack_api.tasks import InvalidTransition, TaskNotFound, TaskStatus, TaskStore
 from jack_api.voice.asr import WAKE_MODEL, ModelManager, Recognizer
 from jack_api.voice.audio import AudioBackend, SoundDeviceBackend
-from jack_api.voice.engine import VoiceBlocked, VoiceEngine
+from jack_api.voice.engine import CommandResult, VoiceBlocked, VoiceEngine
 from jack_api.voice.history import VoiceHistory
 from jack_api.voice.tts import TtsBackend, default_tts
 from jack_api.voice.vad import SileroVad, Vad
@@ -72,6 +74,7 @@ class Services:
     models: ModelManager
     history: VoiceHistory
     ai: AIService
+    discovery: DiscoveryEngine
 
 
 # Task states that deserve a notification (Section 22 alternative/terminal states).
@@ -185,11 +188,12 @@ def create_app(settings: Settings, audio_backend: AudioBackend | None = None, *,
         models = ModelManager(settings.resolved_models_dir, hub.publish_threadsafe)
         history = VoiceHistory(db)
 
-        def on_command(text: str) -> tuple[str, str]:
-            task = tasks.create(text, "voice", None, LOCAL_USER)
-            hub.publish_threadsafe("task.created", schemas.TaskOut.model_validate(task)
-                                   .model_dump(mode="json"))
-            return task.id, task.title
+        later: dict[str, DiscoveryEngine] = {}
+
+        def on_command(text: str) -> CommandResult:
+            # Voice answers go to the conversation that is waiting for one (Section 6).
+            r = later["discovery"].message(text, source="voice", continue_active=True)
+            return CommandResult(r.task_id, r.text, r.listen)
 
         voice = VoiceEngine(
             backend, store, audit, hub.publish_threadsafe,
@@ -206,9 +210,18 @@ def create_app(settings: Settings, audio_backend: AudioBackend | None = None, *,
                        audit, notifications, hub.publish_threadsafe,
                        anthropic_base_url=settings.anthropic_base_url)
         health.register("ai", _ai_probe(ai))
+
+        def publish_task(topic: str, task: Any) -> None:
+            hub.publish_threadsafe(topic, schemas.TaskOut.model_validate(task)
+                                   .model_dump(mode="json"))
+
+        discovery = DiscoveryEngine(db, tasks, audit, store, hub.publish_threadsafe, publish_task,
+                                    complete=ai.complete,
+                                    provider_ready=lambda: ai.reasoning_provider() is not None)
+        later["discovery"] = discovery
         svc = Services(settings, db, audit, tasks, health, hub, time.monotonic(),
                        store, notifications, voice, SystemMetrics(settings.data_dir), models,
-                       history, ai)
+                       history, ai, discovery)
         if recognizer is None:
             # Load downloaded models now so the first command doesn't pause for seconds.
             for name in {WAKE_MODEL, voice.settings.asr_model}:
@@ -366,6 +379,7 @@ def create_app(settings: Settings, audio_backend: AudioBackend | None = None, *,
     app.include_router(m2_router)
     app.include_router(voice_router)
     app.include_router(ai_router)
+    app.include_router(discovery_router)
 
     # ---------------------------------------------------------------- websocket
     @app.websocket("/v1/ws")

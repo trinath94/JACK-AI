@@ -65,9 +65,13 @@ def test_ptt_cycle_streams_level_then_recognises(
         assert utt["transcribed"] is True
         assert utt["transcript"] == "Build a corporate website"
         assert utt["task_id"]
+        # JACK asked a requirements question, so it keeps listening for the answer briefly.
+        assert "?" in utt["reply"]
+        assert _next_topic(conn, "voice.followup")["data"]["wait_s"] == 0.3
     finally:
         ws.__exit__(None, None, None)
-    wait_for(lambda: audio.streams[-1].closed)  # wake word off: mic closes after the command
+    # No answer: the follow-up ends; with the wake word off the microphone closes.
+    wait_for(lambda: audio.streams[-1].closed)
     actions = [a["action"] for a in client.get("/v1/audit").json()["items"]]
     assert "voice.capture.start" in actions and "voice.capture.stop" in actions
 

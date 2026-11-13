@@ -157,6 +157,16 @@ class AIService:
         c = self._settings.claude_code
         return ClaudeCodeConfig(binary=c.binary, model=c.model, timeout_s=c.timeout_s)
 
+    def reasoning_provider(self) -> ProviderId | None:
+        """The provider reasoning calls would use right now, or None if none is set up."""
+        primary: ProviderId = self._settings.routing.reasoning
+        ready = {"anthropic": bool(self._anthropic_key()),
+                 "claude_code": self._settings.claude_code.enabled}
+        if ready[primary]:
+            return primary
+        other: ProviderId = "claude_code" if primary == "anthropic" else "anthropic"
+        return other if self._settings.fallback.enabled and ready[other] else None
+
     # ------------------------------------------------------------------ status
     def status(self) -> dict[str, Any]:
         key = self._anthropic_key()
@@ -254,11 +264,13 @@ class AIService:
                  route: Literal["reasoning", "coding"] = "reasoning",
                  task_id: str | None = None, project_id: str | None = None,
                  system: str | None = None, max_tokens: int = 4096,
-                 effort: str | None = None, allow_fallback: bool = True) -> dict[str, Any]:
+                 effort: str | None = None, allow_fallback: bool = True,
+                 json_schema: dict[str, Any] | None = None) -> dict[str, Any]:
         primary: ProviderId = provider or getattr(self._settings.routing, route)
         self._check_limits(task_id, project_id, primary)
         req = Request(prompt=prompt, system=system, max_tokens=max_tokens, effort=effort,
-                      max_budget_usd=self._remaining_task_budget(task_id))
+                      max_budget_usd=self._remaining_task_budget(task_id),
+                      json_schema=json_schema)
         try:
             completion = self._call(primary, req)
             used = primary
