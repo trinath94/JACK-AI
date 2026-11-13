@@ -209,8 +209,9 @@ def test_microphone_delivering_no_audio_is_reported(client: TestClient, audio: F
     wait_for(lambda: engine.state.value == "idle")
     assert engine.last_result.stopped_by == "no_audio"
     assert audio.streams[0].closed
-    titles = [n["title"] for n in client.get("/v1/notifications").json()["items"]]
-    assert "No audio from microphone" in titles
+    # The notification is created just after the state changes; wait for it rather than race.
+    wait_for(lambda: "No audio from microphone" in
+             [n["title"] for n in client.get("/v1/notifications").json()["items"]])
 
 
 def test_watchdog_quiet_when_audio_flows(client: TestClient, audio: FakeAudio) -> None:

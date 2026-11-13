@@ -125,6 +125,7 @@ Voice works end to end. After JACK asks a question it keeps listening for 8 seco
 | 7 | JACK referred to a "Requirements page" that's called the Command Centre | e2e screenshot | Wording |
 | 8 | A spoken new command during an open conversation would be taken as an answer | Review while writing the e2e | New-command detection (command verb + confidently recognised category); tests |
 | 9 | Spoken name answers kept lead-ins ("The business is called …") | ASR measurement (below) | Broader lead-in stripping; tests |
+| 10 | `test_microphone_delivering_no_audio_is_reported` (from M2) failed once on CI: the test read notifications in the instant between the state change and the notification | CI run of a checkpoint commit | The test waits for the notification; the product behaviour was already correct |
 
 **Speech recognition and names.** In one e2e run, small.en heard the synthetic voice's *"It's called Acme Holdings"* as *"callback me holdings"*. I measured three speaking speeds:
 
