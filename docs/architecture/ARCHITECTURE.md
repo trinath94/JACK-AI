@@ -217,6 +217,58 @@ PortAudio callback ──frames(32 ms)──▶ queue ──▶ voice worker thr
 * Models: downloaded only on user request into `%LOCALAPPDATA%\ai.jack.desktop\models`,
   loaded with `local_files_only`.
 
+## 6b. Requirement discovery (Milestone 5)
+
+Section 6 of the spec: before JACK plans anything, it works out what kind of job a command is
+and asks for what is missing, one question at a time, then writes a structured specification.
+
+```
+command (voice or typed) ─▶ task RECEIVED ─▶ UNDERSTANDING
+   classify: Claude (structured JSON) ─or─ local keyword rules ─▶ category + facts already given
+ ─▶ REQUIREMENTS ⇄ WAITING_FOR_INFORMATION      one essential question at a time
+      answer ─▶ interpret (Claude JSON or local option matching) ─▶ answers, conflicts
+ ─▶ specification (+ scope, dependencies, integrations, hosting, assumptions)
+      small job ─▶ PLANNING                       (no approval step)
+      medium/large ─▶ WAITING_FOR_APPROVAL ─approve─▶ PLANNING
+```
+
+**Catalogue** (`discovery/catalog.py`): the 19 categories, each a declarative template of
+*slots*: question, kind (choice, multi-choice, text, yes/no), options, a sensible default,
+whether it is *essential*, and an optional `ask_if` condition on earlier answers. Only essential
+slots that are still unknown are asked; every other slot takes its default and is listed in
+the specification as an **assumption**, which the user can change. Templates also declare
+conflict rules (e.g. "static site" with "user accounts"), the integrations implied by answers
+(payments → payment provider, e-mail → mail service), and hosting needs.
+
+**Understanding engine.** `auto` (default): Claude via the M4 provider layer, with
+schema-constrained JSON output (`output_config.format` on the API, `--json-schema` on Claude
+Code), validated with pydantic; values that don't fit a slot's options are discarded rather
+than trusted. `local`: deterministic keyword rules and option matching, used when no provider is
+configured, when the user chooses it, or for one turn when a Claude call fails (budget, network)
+— the specification records which engine produced each answer. Every Claude call is billed to
+the task (usage records, per-task limit).
+
+**Loop rules.** One question per turn, options offered with the default marked; answers are
+remembered per session and never asked again; "you decide"/"skip" takes the default; "use
+defaults" fills every remaining slot; "cancel" ends the session. A detected conflict becomes
+the next question ("Static sites can't have user accounts — which do you want?"). An unclear
+category becomes a question listing the closest matches.
+
+**Scale and approval.** Scope = the components a category needs plus those implied by answers;
+small (≤ 3 components, or a small-by-nature category such as research or a single image) goes
+straight to PLANNING; medium and large stop for approval of the specification. Planning and
+execution are Milestone 6 onward, and JACK says so instead of pretending to start work.
+
+**Voice.** The voice engine hands each recognised command to discovery and speaks the reply.
+When the reply is a question, JACK keeps listening for the answer for a few seconds without
+the wake word (a follow-up window; off in privacy mode or when muted). An utterance arriving
+while a session is waiting for an answer is treated as that answer; sessions idle for 30
+minutes stop capturing answers.
+
+**Storage:** `requirement_sessions` (one per task: category, engine, status, answers with their
+source — user, default, inferred — conflicts, specification JSON, scale) and
+`requirement_turns` (the conversation), migration 0005.
+
 ## 7. Task model (summary)
 
 Every request creates a `tasks` row with a lifecycle state machine
