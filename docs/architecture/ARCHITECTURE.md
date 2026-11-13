@@ -163,7 +163,7 @@ scripts installer docker .github/workflows
 > keep PostgreSQL as specified, embedded, introduced at M6; SQLite carries M1–M5. No change is
 > made to the approved stack without your sign-off.
 
-## 6. AI provider layer (M4)
+## 6. AI provider layer (implemented in M4)
 
 `provider-sdk` defines `LLMProvider` (`complete`, `stream`, `tool_call`, `count_tokens`,
 `health`) and `CodingAgentProvider` (`run_session` in a workspace). Implementations:
@@ -174,8 +174,27 @@ scripts installer docker .github/workflows
   JACK never reads, copies or extracts those credentials.
 
 Routing: reasoning/orchestration → API provider; repository coding sessions → Claude Code
-where configured. Fallbacks only if the user has configured them, and a fallback that changes
-cost or data-handling requires a confirmation recorded in `approvals`.
+where configured. Provider fallback is off by default and only happens if the user turns it on
+(Usage and Billing); every fallback is audited and announced as a notification. Within the
+Anthropic API, the API's own server-side refusal fallback (another Claude model, same provider)
+is on by default for the models that support it and can be turned off; the model that answered
+and its price are recorded.
+
+As built in M4 (`services/api/src/jack_api/ai/`):
+
+* `credentials.py`: `keyring` (Windows Credential Manager on Windows). With no secure backend,
+  storing a secret is refused; there is no plaintext fallback. Only a hint (`sk-ant-…abcd`) is
+  ever returned by the API.
+* `providers.py`: `AnthropicApiProvider` (anthropic 2.8.0; the key is always passed explicitly,
+  so the SDK never picks up other credentials from the environment) and `ClaudeCodeProvider`
+  (the prompt goes on stdin, JACK's session token is removed from the child environment, it
+  runs in an empty temp folder with one turn and a budget cap).
+* `pricing.py`: dated list prices (2026-11-03). Unknown models are never priced by guesswork.
+* `service.py`: settings, routing, limits (checked before each call), alerts, and usage records
+  (migration 0004). API cost is estimated; Claude Code cost is as reported by Claude Code and
+  kept separate. Provider settings and limits are stored as typed JSON in `settings` rather
+  than the separate `ai_providers`/`spend_limits` tables sketched in DATABASE.md; they move to
+  tables when multi-user support arrives (M6).
 
 ## 6a. Voice pipeline (implemented in M2–M3)
 

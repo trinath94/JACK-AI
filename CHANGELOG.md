@@ -5,6 +5,23 @@ versioning: [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+### Added — Milestone 4 (Claude provider abstraction)
+- AI provider layer with two providers behind one interface: the **Anthropic API** (official SDK
+  2.8.0, your own key) and **Claude Code** (your installed CLI with its own sign-in).
+- API key stored in **Windows Credential Manager**; never shown again, logged or written to the
+  database; JACK refuses to store keys without a secure store.
+- Model discovery, effort, timeout and retry settings, connection tests, provider health.
+- Server-side refusal fallback (another Claude model) on by default where supported; the
+  serving model and its price are recorded.
+- Usage tracking per model (migration 0004): tokens, estimated cost from a dated price table
+  (unknown models are not guessed), failures; Claude Code usage reported separately and never
+  counted as API spend.
+- Monthly, per-task and per-project spending limits checked before every request, with alerts.
+- Provider fallback only when you turn it on; every switch is audited and announced.
+- **Usage and Billing** page and test console; the dashboard shows Claude status and API spend.
+- CI: Windows Credential Manager round trip; e2e configures a key through the UI against a
+  local fake Messages API.
+
 ### Added — Milestone 3 (wake word and speech)
 - Local speech pipeline: 80 Hz high-pass filter, streaming Silero VAD v6, utterance
   segmentation, Whisper speech recognition (faster-whisper, int8, `tiny.en` / `base.en` /

@@ -1,4 +1,5 @@
 import type {
+  AIStatus,
   BackendConnection,
   BackendStatus,
   Notification,
@@ -147,6 +148,27 @@ export const TASK = {
   completed_at: null,
 };
 
+const EMPTY_BUCKET = { requests: 0, failed: 0, input_tokens: 0, output_tokens: 0, cache_read_tokens: 0, cache_write_tokens: 0, cost_usd: "0", unpriced_requests: 0 };
+
+export function aiStatus(): AIStatus {
+  return {
+    credential_store: { kind: "keyring.backends.Windows.WinVaultKeyring", secure: true, available: true, detail: null },
+    anthropic: {
+      configured: false,
+      key_hint: null,
+      settings: { model: "claude-opus-5-5", effort: "medium", timeout_s: 120, max_retries: 2, refusal_fallback: true },
+      last_test: null,
+      price_known: true,
+    },
+    claude_code: { settings: { enabled: false, binary: null, model: null, timeout_s: 300 }, detected: null, last_test: null },
+    routing: { reasoning: "anthropic", coding: "claude_code" },
+    fallback: { enabled: false },
+    limits: { monthly_usd: null, per_task_usd: null, per_project_usd: null, alert_pct: [50, 80, 100] },
+    prices_as_of: "2026-11-03",
+    month: { month: "2026-11", api: { ...EMPTY_BUCKET }, claude_code: { ...EMPTY_BUCKET }, by_model: [], by_day: [], monthly_limit_usd: null, limit_used_pct: null },
+  };
+}
+
 /** In-memory stand-in for the JACK service REST API. */
 export const MODELS: SpeechModel[] = [
   { name: "tiny.en", size_mb: 75, purpose: "Wake word", status: "ready", downloaded_mb: 0, error: null },
@@ -156,6 +178,7 @@ export const MODELS: SpeechModel[] = [
 
 export function mockService(init: { voice?: VoiceStatus; notifications?: Notification[] } = {}) {
   const state = {
+    ai: aiStatus(),
     models: structuredClone(MODELS),
     voice: structuredClone(init.voice ?? VOICE),
     notifications: structuredClone(init.notifications ?? []) as Notification[],
@@ -209,6 +232,36 @@ export function mockService(init: { voice?: VoiceStatus; notifications?: Notific
       return json(204, undefined);
     }
     if (path === "/v1/system/metrics") return json(200, METRICS);
+    if (path === "/v1/ai/status") return json(200, state.ai);
+    if (path === "/v1/ai/anthropic/key" && method === "PUT") {
+      state.ai.anthropic.configured = true;
+      state.ai.anthropic.key_hint = `sk-ant-…${String((body as { api_key: string }).api_key).slice(-4)}`;
+      return json(204, undefined);
+    }
+    if (path === "/v1/ai/anthropic/key" && method === "DELETE") {
+      state.ai.anthropic.configured = false;
+      state.ai.anthropic.key_hint = null;
+      return json(204, undefined);
+    }
+    if (path === "/v1/ai/settings") {
+      const p = body as Record<string, Record<string, unknown>>;
+      for (const [k, v] of Object.entries(p)) Object.assign((state.ai as unknown as Record<string, object>)[k]!, v);
+      return json(200, {});
+    }
+    if (path.startsWith("/v1/ai/anthropic/models"))
+      return json(200, [{ id: "claude-opus-5-5", display_name: "Claude Opus 5.5", max_input_tokens: 1e6, max_tokens: 128000, price_known: true },
+        { id: "claude-future-9", display_name: "Claude Future 9", max_input_tokens: null, max_tokens: null, price_known: false }]);
+    if (path === "/v1/ai/anthropic/test") {
+      state.ai.anthropic.last_test = { ok: true, at: "2026-11-12T10:00:00Z", model: "claude-opus-5-5", latency_ms: 420, reply: "OK", error: null, error_code: null };
+      return json(200, state.ai.anthropic.last_test);
+    }
+    if (path === "/v1/ai/claude-code/detect") {
+      state.ai.claude_code.detected = { installed: true, binary: "C:/claude.cmd", version: "2.1.322 (Claude Code)", logged_in: true, auth_method: "claude.ai", api_provider: "firstParty", detail: null };
+      return json(200, state.ai.claude_code.detected);
+    }
+    if (path === "/v1/ai/complete")
+      return json(200, { text: "Hello from Claude", provider: "anthropic", model_requested: "claude-opus-5-5", model_served: "claude-opus-5-5", stop_reason: "end_turn", billing_kind: "api", latency_ms: 812, refusal_category: null, fallbacks: [], usage: [{ model: "claude-opus-5-5", input_tokens: 20, output_tokens: 6, cache_read: 0, cache_write_5m: 0, cache_write_1h: 0 }], cost_usd: "0.000200", reported_cost_usd: null });
+    if (path.startsWith("/v1/ai/usage/records")) return json(200, { items: [], total: 0 });
     if (path.startsWith("/v1/audit?")) return json(200, { items: [], total: 0 });
     if (path === "/v1/system/info") return json(404, {});
     return json(404, { error: { code: "not_found", message: path, request_id: null } });

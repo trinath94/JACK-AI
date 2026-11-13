@@ -47,6 +47,9 @@ class Settings(BaseSettings):
     data_dir: Path = Field(default_factory=default_data_dir)
     database_url: str | None = None
     models_dir: Path | None = None
+    # Tests only: point the Anthropic provider at a local fake API. Loopback URLs only, so a
+    # stored key can never be redirected to another host.
+    anthropic_base_url: str | None = None
     dev_mode: bool = False
     exit_with_parent: bool = False
     supervisor_pid: int | None = None
@@ -74,6 +77,18 @@ class Settings(BaseSettings):
         if self.database_url:
             return self.database_url
         return f"sqlite:///{(self.data_dir / 'jack.db').as_posix()}"
+
+    @field_validator("anthropic_base_url")
+    @classmethod
+    def loopback_base_url_only(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        from urllib.parse import urlparse
+
+        u = urlparse(v)
+        if u.scheme != "http" or u.hostname not in ("127.0.0.1", "localhost"):
+            raise ValueError("anthropic_base_url may only point at a loopback test server")
+        return v
 
     @cached_property
     def resolved_models_dir(self) -> Path:

@@ -23,6 +23,8 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import select
 
 from jack_api import schemas
+from jack_api.ai.credentials import CredentialStore, default_store
+from jack_api.ai.service import AIService
 from jack_api.audit import AuditLog
 from jack_api.config import VERSION, Settings
 from jack_api.db import Database, Device, utcnow
@@ -36,6 +38,7 @@ from jack_api.health import (
 from jack_api.metrics import SystemMetrics
 from jack_api.notifications import NotificationCentre
 from jack_api.redaction import register_secret
+from jack_api.routes_ai import router as ai_router
 from jack_api.routes_m2 import router as m2_router
 from jack_api.routes_voice import router as voice_router
 from jack_api.security import LoopbackAuthMiddleware, token_matches
@@ -68,6 +71,7 @@ class Services:
     metrics: SystemMetrics
     models: ModelManager
     history: VoiceHistory
+    ai: AIService
 
 
 # Task states that deserve a notification (Section 22 alternative/terminal states).
@@ -129,6 +133,20 @@ async def _metrics_loop(svc: Services) -> None:
         await asyncio.sleep(svc.settings.metrics_interval_s)
 
 
+def _ai_probe(ai: AIService) -> Any:
+    async def probe() -> ProbeResult:
+        st = await asyncio.to_thread(ai.status)
+        a, test = st["anthropic"], st["anthropic"]["last_test"]
+        if not a["configured"] and not st["claude_code"]["settings"]["enabled"]:
+            return ProbeResult("degraded", "No AI provider configured")
+        if test and not test["ok"]:
+            return ProbeResult("degraded", f"Anthropic API: {test['error_code']}")
+        return ProbeResult("healthy", "Anthropic API key set" if a["configured"]
+                           else "Claude Code enabled")
+
+    return probe
+
+
 def _voice_probe(voice: VoiceEngine) -> Any:
     async def probe() -> ProbeResult:
         caps = await asyncio.to_thread(voice.capabilities)
@@ -142,7 +160,8 @@ def _voice_probe(voice: VoiceEngine) -> Any:
 
 def create_app(settings: Settings, audio_backend: AudioBackend | None = None, *,
                recognizer: Recognizer | None = None, tts: TtsBackend | None = None,
-               vad_factory: Callable[[], Vad] | None = None) -> FastAPI:
+               vad_factory: Callable[[], Vad] | None = None,
+               credentials: CredentialStore | None = None) -> FastAPI:
     register_secret(settings.session_token.get_secret_value())
     holder: dict[str, Services] = {}
 
@@ -183,9 +202,13 @@ def create_app(settings: Settings, audio_backend: AudioBackend | None = None, *,
         if purged:
             log.info("purged %d voice sessions past retention", purged)
         health.register("voice", _voice_probe(voice))
+        ai = AIService(db, store, credentials if credentials is not None else default_store(),
+                       audit, notifications, hub.publish_threadsafe,
+                       anthropic_base_url=settings.anthropic_base_url)
+        health.register("ai", _ai_probe(ai))
         svc = Services(settings, db, audit, tasks, health, hub, time.monotonic(),
                        store, notifications, voice, SystemMetrics(settings.data_dir), models,
-                       history)
+                       history, ai)
         if recognizer is None:
             # Load downloaded models now so the first command doesn't pause for seconds.
             for name in {WAKE_MODEL, voice.settings.asr_model}:
@@ -234,6 +257,9 @@ def create_app(settings: Settings, audio_backend: AudioBackend | None = None, *,
 
     @app.exception_handler(HTTPException)
     async def _http(_: Request, exc: HTTPException) -> JSONResponse:
+        if isinstance(exc.detail, dict) and "code" in exc.detail:
+            return _error(exc.status_code, str(exc.detail["code"]),
+                          str(exc.detail.get("message", "")))
         code = {404: "not_found", 409: "invalid_transition"}.get(exc.status_code, "error")
         return _error(exc.status_code, code, str(exc.detail))
 
@@ -339,6 +365,7 @@ def create_app(settings: Settings, audio_backend: AudioBackend | None = None, *,
 
     app.include_router(m2_router)
     app.include_router(voice_router)
+    app.include_router(ai_router)
 
     # ---------------------------------------------------------------- websocket
     @app.websocket("/v1/ws")

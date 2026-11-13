@@ -49,6 +49,6 @@ export const NAV: NavItem[] = [
   { id: "deployments", label: "Deployments", icon: Rocket, milestone: 13, summary: "Staging and approval-gated production deployments with rollback." },
   { id: "knowledge", label: "Knowledge Base", icon: BookOpen, milestone: 8, summary: "Project memory and semantic search." },
   { id: "security", label: "Security", icon: Shield, milestone: null, summary: "Tamper-evident audit log and chain verification.", shortcut: "3" },
-  { id: "usage", label: "Usage and Billing", icon: CreditCard, milestone: 4, summary: "API tokens, cost, and spending limits — API billing shown separately from subscriptions." },
+  { id: "usage", label: "Usage and Billing", icon: CreditCard, milestone: null, summary: "Claude providers, API keys, usage, cost and spending limits — API billing shown separately from subscriptions.", shortcut: "5" },
   { id: "settings", label: "Settings", icon: Settings, milestone: null, summary: "Appearance and service information.", shortcut: "," },
 ];

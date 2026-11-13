@@ -54,6 +54,11 @@ def main() -> int:
         "--collect-data", "onnxruntime",
         "--collect-all", "tokenizers",
         "--collect-binaries", "av",
+        # AI providers (M4): keyring finds its backends (Windows Credential Manager) through
+        # package metadata entry points, which are lost unless copied explicitly.
+        "--copy-metadata", "keyring",
+        "--collect-submodules", "keyring.backends",
+        "--collect-submodules", "anthropic",
         "--hidden-import", "jack_api.app",
         # Console subsystem on purpose: the supervisor spawns with CREATE_NO_WINDOW, and a
         # windowed build would leave sys.stderr = None and break logging.

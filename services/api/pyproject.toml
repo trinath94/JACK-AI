@@ -18,6 +18,8 @@ dependencies = [
     "numpy==2.5.4",
     "onnxruntime==1.31.1",
     "comtypes==1.5.0; sys_platform == 'win32'",
+    "anthropic==2.8.0",
+    "keyring==25.7.0",
 ]
 
 [project.optional-dependencies]
@@ -55,6 +57,7 @@ ignore = ["S101"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["S105", "S106"]
+"tests/fake_anthropic.py" = ["S105", "S106", "E501"]  # verbatim JSON in a fake CLI script
 
 [tool.mypy]
 strict = true

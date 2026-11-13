@@ -10,6 +10,7 @@ import uuid
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -17,10 +18,12 @@ from alembic import command
 from alembic.config import Config
 from sqlalchemy import (
     JSON,
+    Boolean,
     DateTime,
     Engine,
     ForeignKey,
     Integer,
+    Numeric,
     String,
     Text,
     UniqueConstraint,
@@ -137,6 +140,33 @@ class VoiceTurn(Base):
     role: Mapped[str] = mapped_column(String(8))  # user | jack
     text: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class UsageRecord(Base):
+    """One AI provider call (Section 24). Secrets are never stored here."""
+
+    __tablename__ = "usage_records"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow,
+                                                  index=True)
+    provider_id: Mapped[str] = mapped_column(String(32), index=True)
+    billing_kind: Mapped[str] = mapped_column(String(16), index=True)  # api | claude_code
+    model_requested: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    model: Mapped[str] = mapped_column(String(64), index=True)  # model that served this part
+    purpose: Mapped[str] = mapped_column(String(32))
+    task_id: Mapped[str | None] = mapped_column(
+        ForeignKey("tasks.id", ondelete="SET NULL"), nullable=True, index=True)
+    project_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
+    input_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    output_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    cache_read_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    cache_write_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    cost_usd: Mapped[Decimal | None] = mapped_column(Numeric(14, 6), nullable=True)
+    cost_source: Mapped[str] = mapped_column(String(16))  # estimated | reported | unknown | none
+    succeeded: Mapped[bool] = mapped_column(Boolean, default=True)
+    error_code: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    latency_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    request_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
 
 
 class Database:

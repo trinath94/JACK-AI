@@ -18,6 +18,11 @@
 | JACK wakes up when nobody called it | A sentence starting with a similar word ("Jackson…") | Lower the sensitivity. The wake word only triggers at the start of an utterance |
 | No spoken replies | Spoken replies are off, no Windows voices are installed, or there is no audio output | Voice page → Spoken replies → Test voice. Windows Settings → Time & language → Speech → add voices |
 | First command after start-up is slow | Models are still loading | Wait a few seconds after JACK starts; later commands are faster |
+| "The Anthropic API key was rejected" | Wrong, revoked or mistyped key | Usage and Billing → Remove key, then paste a new key from console.anthropic.com → API keys |
+| "No secure key store" badge | Windows Credential Manager is unavailable (rare; policy-restricted machines) | JACK will not save keys in plain text. Ask your administrator to allow Credential Manager for your account |
+| "AI request blocked: monthly spending limit" | The limit you set was reached | Raise or clear the limit in Usage and Billing → Spending limits |
+| Claude Code "not installed" or "not signed in" | Claude Code is missing, not on PATH, or signed out | Install Claude Code, run `claude` once and sign in, then press Detect. If it's installed somewhere unusual, set its path in settings |
+| Costs show "—" or "no price data" | The model is newer than JACK's price table | Usage is still recorded; the cost is not guessed. Your Anthropic invoice has the real figure |
 
 ## Collecting diagnostics
 

@@ -1,5 +1,14 @@
 import type {
+  AICompletion,
+  AIModel,
+  AIProviderId,
+  AISettingsPatch,
+  AIStatus,
+  AITestResult,
   ApiError,
+  ClaudeCodeDetection,
+  MonthSummary,
+  UsageRecordRow,
   AuditEvent,
   BackendConnection,
   AudioDevice,
@@ -146,6 +155,36 @@ export class JackApi {
   }
   metrics() {
     return this.request<SystemMetrics>("GET", "/v1/system/metrics");
+  }
+  aiStatus() {
+    return this.request<AIStatus>("GET", "/v1/ai/status");
+  }
+  setAnthropicKey(apiKey: string) {
+    return this.request<void>("PUT", "/v1/ai/anthropic/key", { api_key: apiKey });
+  }
+  deleteAnthropicKey() {
+    return this.request<void>("DELETE", "/v1/ai/anthropic/key");
+  }
+  updateAISettings(patch: AISettingsPatch) {
+    return this.request<unknown>("PATCH", "/v1/ai/settings", patch);
+  }
+  anthropicModels(refresh = false) {
+    return this.request<AIModel[]>("GET", `/v1/ai/anthropic/models?refresh=${refresh}`);
+  }
+  testProvider(provider: AIProviderId) {
+    return this.request<AITestResult>("POST", `/v1/ai/${provider}/test`);
+  }
+  detectClaudeCode() {
+    return this.request<ClaudeCodeDetection>("POST", "/v1/ai/claude-code/detect");
+  }
+  aiComplete(prompt: string, provider?: AIProviderId) {
+    return this.request<AICompletion>("POST", "/v1/ai/complete", { prompt, ...(provider ? { provider } : {}) });
+  }
+  aiUsage(month?: string) {
+    return this.request<MonthSummary>("GET", `/v1/ai/usage${month ? `?month=${month}` : ""}`);
+  }
+  aiUsageRecords(limit = 20) {
+    return this.request<{ items: UsageRecordRow[]; total: number }>("GET", `/v1/ai/usage/records?limit=${limit}`);
   }
   verifyAudit() {
     return this.request<{ valid: boolean; checked: number; first_invalid_seq: number | null }>(

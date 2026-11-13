@@ -34,7 +34,9 @@ files at the time of writing; re-verify before each release (`scripts/licence-re
 | Windows SAPI 5 voices | OS component | Microsoft (part of Windows) | M3 spoken replies; not redistributed |
 | espeak-ng | system package | GPL-3.0 | **Development and CI only** (Linux text-to-speech and synthetic test speech); called as a separate program, never bundled |
 | Playwright (Python) + Chromium | 1.x | Apache-2.0; Chromium BSD | M15. Browsers downloaded on first use, not bundled, to keep installer size down |
-| Anthropic Python SDK | 2.x | MIT | M4 |
+| Anthropic Python SDK (`anthropic`) | 2.8.0 | Apache-2.0 | **M4** Anthropic API provider |
+| keyring | 25.7.0 | MIT | **M4** Windows Credential Manager access (uses `pywin32-ctypes`, BSD, on Windows) |
+| Claude Code CLI | user-installed | Anthropic terms | **M4** optional provider; never bundled; JACK runs the user's installation |
 | paramiko / asyncssh | – | LGPL-2.1 / EPL-2.0 | M10 — prefer **asyncssh (EPL-2.0 / GPL-2.0+)**, dynamic use only; final choice recorded in M10 |
 | keyring (Rust) | 4.x | MIT / Apache-2.0 | Windows Credential Manager (M4) |
 | python-sounddevice | 0.5.6 | MIT | M2 microphone capture. Bundles **PortAudio** (MIT) on Windows/macOS |
