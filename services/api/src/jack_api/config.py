@@ -11,6 +11,7 @@ import os
 import sys
 from functools import cached_property
 from pathlib import Path
+from typing import Literal
 
 from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -46,6 +47,9 @@ class Settings(BaseSettings):
     port: int = Field(default=8765, ge=1, le=65535)
     data_dir: Path = Field(default_factory=default_data_dir)
     database_url: str | None = None
+    # Milestone 6 (decision D-1): embedded PostgreSQL by default; "sqlite" opts out.
+    # JACK_DATABASE_URL overrides both (tests, CI, a server you run yourself).
+    database: Literal["embedded", "sqlite"] = "embedded"
     models_dir: Path | None = None
     # Tests only: point the Anthropic provider at a local fake API. Loopback URLs only, so a
     # stored key can never be redirected to another host.
@@ -73,7 +77,7 @@ class Settings(BaseSettings):
         return v
 
     @cached_property
-    def resolved_database_url(self) -> str:
+    def resolved_database_url(self) -> str:  # SQLite path used before M6 and as fallback
         if self.database_url:
             return self.database_url
         return f"sqlite:///{(self.data_dir / 'jack.db').as_posix()}"

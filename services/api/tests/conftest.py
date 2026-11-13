@@ -13,6 +13,9 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 
+# Unit tests use SQLite (or JACK_DATABASE_URL) unless a test asks for embedded PostgreSQL.
+os.environ.setdefault("JACK_DATABASE", "sqlite")
+
 from jack_api.app import create_app
 from jack_api.config import Settings
 from jack_api.voice.asr import Transcript

@@ -27,6 +27,7 @@ from jack_api.ai.credentials import CredentialStore, default_store
 from jack_api.ai.service import AIService
 from jack_api.audit import AuditLog
 from jack_api.config import VERSION, Settings
+from jack_api.datastore import Stores, open_stores
 from jack_api.db import Database, Device, utcnow
 from jack_api.discovery.engine import DiscoveryEngine
 from jack_api.health import (
@@ -75,6 +76,7 @@ class Services:
     history: VoiceHistory
     ai: AIService
     discovery: DiscoveryEngine
+    stores: Stores
 
 
 # Task states that deserve a notification (Section 22 alternative/terminal states).
@@ -171,17 +173,20 @@ def create_app(settings: Settings, audio_backend: AudioBackend | None = None, *,
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         settings.data_dir.mkdir(parents=True, exist_ok=True)
-        db = Database(settings.resolved_database_url)
-        await asyncio.to_thread(db.migrate)
+        creds = credentials if credentials is not None else default_store()
+        # Started on this (main) thread on purpose: on Linux the embedded PostgreSQL gets a
+        # parent-death signal tied to the thread that starts it.
+        stores: Stores = open_stores(settings, creds)
+        db = stores.main
         await asyncio.to_thread(_register_device, db)
         audit = AuditLog(db)
         health = HealthRegistry()
         health.register("api", api_probe)
-        health.register("database", database_probe(db))
+        health.register("database", database_probe(db, stores))
         health.register("disk", disk_probe(settings.data_dir))
         hub = Hub()
         hub.loop = asyncio.get_running_loop()
-        store = SettingsStore(db)
+        store = SettingsStore(stores.prefs)
         backend = audio_backend if audio_backend is not None else SoundDeviceBackend()
         notifications = NotificationCentre(db, hub.publish_threadsafe)
         tasks = TaskStore(db, audit)
@@ -206,7 +211,9 @@ def create_app(settings: Settings, audio_backend: AudioBackend | None = None, *,
         if purged:
             log.info("purged %d voice sessions past retention", purged)
         health.register("voice", _voice_probe(voice))
-        ai = AIService(db, store, credentials if credentials is not None else default_store(),
+        for w in stores.warnings:
+            notifications.create("database", "Database", w, level="warning")
+        ai = AIService(db, store, creds,
                        audit, notifications, hub.publish_threadsafe,
                        anthropic_base_url=settings.anthropic_base_url)
         health.register("ai", _ai_probe(ai))
@@ -221,7 +228,7 @@ def create_app(settings: Settings, audio_backend: AudioBackend | None = None, *,
         later["discovery"] = discovery
         svc = Services(settings, db, audit, tasks, health, hub, time.monotonic(),
                        store, notifications, voice, SystemMetrics(settings.data_dir), models,
-                       history, ai, discovery)
+                       history, ai, discovery, stores)
         if recognizer is None:
             # Load downloaded models now so the first command doesn't pause for seconds.
             for name in {WAKE_MODEL, voice.settings.asr_model}:
@@ -242,7 +249,7 @@ def create_app(settings: Settings, audio_backend: AudioBackend | None = None, *,
                 with contextlib.suppress(asyncio.CancelledError):
                     await t
             await asyncio.to_thread(audit.record, "service.stop", outcome="info")
-            db.dispose()
+            stores.close()
 
     app = FastAPI(title="JACK AI Local Service", version=VERSION, lifespan=lifespan,
                   docs_url=None, redoc_url=None, openapi_url="/v1/openapi.json")

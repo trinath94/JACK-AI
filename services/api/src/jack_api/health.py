@@ -85,14 +85,21 @@ class HealthRegistry:
         return [asdict(r) for r in results]
 
 
-def database_probe(db: Database) -> Probe:
+def database_probe(db: Database, stores: Any = None) -> Probe:
     async def probe() -> ProbeResult:
         def ping() -> None:
             with db.engine.connect() as conn:
                 conn.execute(text("SELECT 1"))
 
         await asyncio.to_thread(ping)
-        return ProbeResult("healthy", db.backend)
+        if stores is None:
+            return ProbeResult("healthy", db.backend)
+        if stores.pg is not None and not stores.pg.status().running:
+            return ProbeResult("unhealthy", stores.pg.status().detail)
+        # Running on SQLite because PostgreSQL couldn't start is a degraded state, not hidden.
+        if stores.mode == "sqlite" and stores.warnings:
+            return ProbeResult("degraded", stores.detail)
+        return ProbeResult("healthy", stores.detail)
 
     return probe
 

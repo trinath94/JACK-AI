@@ -20,10 +20,11 @@ dependencies = [
     "comtypes==1.5.0; sys_platform == 'win32'",
     "anthropic==2.8.0",
     "keyring==25.7.0",
+    # Milestone 6: embedded PostgreSQL (decision D-1) and durable workflows.
+    "psycopg[binary]==3.3.9",
+    "pixeltable-pgserver==0.7.2",  # PostgreSQL 16.15 + pgvector binaries, used as files only
+    "temporalio==1.35.0",
 ]
-
-[project.optional-dependencies]
-postgres = ["psycopg[binary]==3.3.9"]
 
 [dependency-groups]
 dev = [
@@ -58,6 +59,9 @@ ignore = ["S101"]
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["S105", "S106"]
 "tests/fake_anthropic.py" = ["S105", "S106", "E501"]  # verbatim JSON in a fake CLI script
+# Fixed, bundled server binaries started without a shell.
+"src/jack_api/embedded_pg.py" = ["S603"]
+"src/jack_api/temporal_server.py" = ["S603"]
 
 [tool.mypy]
 strict = true
