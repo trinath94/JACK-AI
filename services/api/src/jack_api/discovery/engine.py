@@ -127,6 +127,8 @@ class DiscoveryEngine:
                     raise SessionClosed(f"That conversation is {row.status}")
             elif continue_active:
                 row = self._active_row()
+                if row is not None and rules.looks_like_new_command(text):
+                    row = None  # "Jack, create a logo…" starts a new conversation
             if row is None:
                 return self._start(text, source)
             return self._answer(row, text, source)
@@ -155,7 +157,7 @@ class DiscoveryEngine:
             self._audit.record("requirements.edit", outcome="allowed", actor_type="user",
                                target=f"task:{row.task_id}", details={"slot": slot_id})
             if row.status in ("awaiting_approval", "ready"):
-                self._reopen(row, f"Changed {slot.label.lower()} on the Requirements page")
+                self._reopen(row, f"Changed {slot.label.lower()} in the Command Centre")
             return self._next(row, source="ui", prefix="")
 
     def approve(self, session_id: str) -> Reply:
@@ -255,7 +257,7 @@ class DiscoveryEngine:
                 st["pending"] = None
                 return self._next(row, source=source, prefix="I couldn't tell what to change, "
                                   "so I've kept the specification as it was. You can also edit "
-                                  "it on the Requirements page. ")
+                                  "it in the Command Centre. ")
             return self._say(row, "Sorry, which part? For example the hosting, the features, or "
                              "the design.", source, expects=True, wait=True)
         if kind == "category":
@@ -290,7 +292,7 @@ class DiscoveryEngine:
         if pending["attempts"] >= MAX_ATTEMPTS:
             self._store_answer(row, slot, slot.default, "default", None, "local")
             st["notes"].append(f"{slot.label}: I didn't understand the answer, so I used the "
-                               "default. You can change it on the Requirements page.")
+                               "default. You can change it in the Command Centre.")
             st["pending"] = None
             return self._next(row, source=source, prefix="I'll use the usual choice for that. ")
         return self._say(row, _retry_question(slot), source, expects=True, wait=True,
@@ -381,7 +383,7 @@ class DiscoveryEngine:
                      + (" among others" if len(integ) > 2 else "")) if integ else ""
             text = (f"{prefix}I have what I need for the {spec['title'][0].lower()}"
                     f"{spec['title'][1:]}. It's a {spec['scope']['scale']} project with {n} "
-                    f"components{extra}. The full specification is on the Requirements page. "
+                    f"components{extra}. The full specification is in the Command Centre. "
                     "Shall I go ahead with it?")
             self._move(row.task_id, S.WAITING_FOR_APPROVAL, "Specification ready for approval")
             return self._say(row, text, source, expects=True, wait=False,

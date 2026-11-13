@@ -56,6 +56,19 @@ def classify(text: str) -> Classification:
     return Classification(None, confidence, [cid, *alts][:4])
 
 
+COMMAND_VERBS = ("build", "create", "make", "write", "design", "develop", "research", "automate",
+                 "set up", "setup", "deploy", "connect", "generate", "edit", "produce", "audit",
+                 "run a", "do a", "i need", "i want", "we need", "can you", "could you")
+
+
+def looks_like_new_command(text: str) -> bool:
+    """A fresh request ("Jack, create a logo…") rather than an answer to a question."""
+    t = norm(text)
+    t = re.sub(r"^ (hey |ok |okay )?jack,? ", " ", t)
+    starts = any(t.startswith(f" {v} ") for v in COMMAND_VERBS)
+    return starts and classify(text).category is not None
+
+
 def category_from_answer(text: str, offered: list[str]) -> str | None:
     """Resolve the user's reply to "which kind of job is this?"."""
     t = norm(text)
@@ -121,8 +134,9 @@ def ordinal(text_n: str, n: int) -> int | None:
 
 # --------------------------------------------------------------------------- slot answers
 FILLERS = re.compile(r"^(it's|it is|its|we're|we are|i'm|i am|they're|the name is|it's called|"
-                     r"it is called|called|we're called|the company is|our company is|"
-                     r"my company is|um|uh|well|so|basically)\s+", re.I)
+                     r"it is called|called|named|we're called|the company is|our company is|"
+                     r"my company is|the business is|the company's|our name is|my name is|"
+                     r"the name's|um|uh|well|so|basically|okay|ok)\s+", re.I)
 
 
 @dataclass

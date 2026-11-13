@@ -251,8 +251,8 @@ the task (usage records, per-task limit).
 **Loop rules.** One question per turn, options offered with the default marked; answers are
 remembered per session and never asked again; "you decide"/"skip" takes the default; "use
 defaults" fills every remaining slot; "cancel" ends the session. A detected conflict becomes
-the next question ("Static sites can't have user accounts — which do you want?"). An unclear
-category becomes a question listing the closest matches.
+the next question ("A site that only runs on this PC can't take payments from customers. Which
+would you prefer…?"). An unclear category becomes a question listing the closest matches.
 
 **Scale and approval.** Scope = the components a category needs plus those implied by answers;
 small (≤ 3 components, or a small-by-nature category such as research or a single image) goes
@@ -264,6 +264,22 @@ When the reply is a question, JACK keeps listening for the answer for a few seco
 the wake word (a follow-up window; off in privacy mode or when muted). An utterance arriving
 while a session is waiting for an answer is treated as that answer; sessions idle for 30
 minutes stop capturing answers.
+
+**As built (M5)** — `services/api/src/jack_api/discovery/`: `catalog.py` (19 templates, 96
+questions, of which 2–6 per category are essential), `rules.py` (local understanding),
+`llm.py` (Claude prompts, schemas, validation), `spec.py`, `engine.py`. Details settled during
+implementation:
+* Local rules fill unasked questions only from the *opening* request; in an answer to one
+  question, words like "contact" would otherwise wrongly fill others. Claude may fill or correct
+  any slot from any answer ("actually, make it bold").
+* A choice question gets one retry with its options read out; after that the default is used
+  and noted in the specification. Free-text answers lose spoken lead-ins ("It's called …").
+* A voice utterance goes to the conversation waiting for an answer, unless it clearly starts a
+  new job (a command verb plus a confidently recognised category, e.g. "Jack, create a logo…").
+* The follow-up window is 8 s; the Home command box and the Command Centre both continue the
+  waiting conversation.
+* A security audit stops (`blocked`, task cancelled, audited as denied) if the user says they
+  don't own or have permission to test the targets.
 
 **Storage:** `requirement_sessions` (one per task: category, engine, status, answers with their
 source — user, default, inferred — conflicts, specification JSON, scale) and

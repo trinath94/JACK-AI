@@ -321,6 +321,31 @@ def test_sessions_survive_a_restart(settings: Settings, token: str, audio: FakeA
         assert r["reply"]["slot"] == "business_name"
 
 
+@pytest.mark.parametrize(("text", "new"), [
+    ("Jack, create a logo for my bakery", True),
+    ("Build a professional corporate website", True),
+    ("Hey Jack, research the best CRM for small teams", False),  # ambiguous: not confident
+    ("It's called Acme Holdings", False),
+    ("A contact form and a blog", False),
+    ("on my own server", False),
+    ("you decide", False),
+])
+def test_new_command_detection(text: str, new: bool) -> None:
+    assert rules.looks_like_new_command(text) is new
+
+
+def test_voice_answers_go_to_the_waiting_conversation_unless_it_is_a_new_command(
+        client: TestClient) -> None:
+    eng = client.app.state.svc.discovery  # type: ignore[attr-defined]
+    first = eng.message("Build a website", source="voice", continue_active=True)
+    answer = eng.message("My company", source="voice", continue_active=True)
+    assert answer.session_id == first.session_id
+    new = eng.message("Jack, create a logo for my bakery", source="voice", continue_active=True)
+    assert new.session_id != first.session_id
+    follow = eng.message("Flat and minimal", source="voice", continue_active=True)
+    assert follow.session_id == new.session_id  # the newest conversation takes answers
+
+
 # ------------------------------------------------------------------ voice
 def test_voice_answers_follow_up_without_the_wake_word(
         client: TestClient, audio: FakeAudio, asr: FakeRecognizer, tts: FakeTts) -> None:
@@ -422,6 +447,16 @@ def test_every_category_is_reachable_by_its_name(cat: Any) -> None:
 ])
 def test_local_classifier(text: str, expected: str) -> None:
     assert rules.classify(text).category == expected
+
+
+@pytest.mark.parametrize(("spoken", "name"), [
+    ("It's called Green Valley Bakery.", "Green Valley Bakery"),
+    ("The business is called Blue Harbor Consulting", "Blue Harbor Consulting"),
+    ("Okay, our name is Northwind Traders", "Northwind Traders"),
+    ("Contoso", "Contoso"),
+])
+def test_spoken_names_lose_their_lead_in(spoken: str, name: str) -> None:
+    assert rules.strip_fillers(spoken.replace(",", "")) == name
 
 
 def test_default_phrases_never_select_an_option() -> None:

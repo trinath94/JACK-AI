@@ -567,7 +567,7 @@ class VoiceEngine:
         elif self._mode == "followup" and not self._seg.in_speech and \
                 now - self._mode_started >= self.followup_wait_s:
             # No answer: stop listening quietly. The question stays open; the user can answer
-            # later with push-to-talk, the wake word, or on the Requirements page.
+            # later with push-to-talk, the wake word, or in the Command Centre.
             self._mode = "none"
             self._audit.record("voice.followup.end", outcome="info", actor_type="system",
                                details={"answered": False})

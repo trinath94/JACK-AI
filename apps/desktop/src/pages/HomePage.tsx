@@ -126,12 +126,17 @@ function CommandBox({ online, inputRef, onOpenCommand }: {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ex, setEx] = useState<Exchange | null>(null);
+  const [dismissed, setDismissed] = useState<string | null>(null);
 
-  // Keep the shown question current if the conversation moves on elsewhere (voice, Command Centre).
+  // Show the conversation JACK is waiting on (also after navigating away and back), and keep the
+  // question current when it moves on elsewhere (voice, Command Centre).
   useEffect(() => {
-    if (!api || !ex) return;
+    if (!api) return;
     let live = true;
-    api.discoverySession(ex.sessionId).then((s) => {
+    const pick = ex ? Promise.resolve(ex.sessionId)
+      : api.discoverySessions(true).then((l) => l.find((s) => s.id !== dismissed)?.id ?? null);
+    pick.then((id) => (id ? api.discoverySession(id) : null)).then((s) => {
+      if (!s) return;
       const last = [...(s.turns ?? [])].reverse().find((t) => t.role === "jack");
       if (!live || !last) return;
       const q = s.question;
@@ -141,7 +146,7 @@ function CommandBox({ online, inputRef, onOpenCommand }: {
     return () => {
       live = false;
     };
-  }, [api, discoveryTick]);
+  }, [api, discoveryTick, dismissed]);
 
   async function send(text: string) {
     if (!api || !text.trim()) return;
@@ -198,7 +203,7 @@ function CommandBox({ online, inputRef, onOpenCommand }: {
           )}
           <div className="flex gap-3 text-xs">
             {onOpenCommand && <button type="button" onClick={onOpenCommand} className="text-[var(--accent)] hover:underline">Open in Command Centre</button>}
-            {ex.open && <button type="button" onClick={() => setEx(null)} className="text-[var(--muted)] hover:underline">Start a new request instead</button>}
+            {ex.open && <button type="button" onClick={() => { setDismissed(ex.sessionId); setEx(null); }} className="text-[var(--muted)] hover:underline">Start a new request instead</button>}
           </div>
         </div>
       ) : (

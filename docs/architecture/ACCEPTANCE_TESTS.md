@@ -7,7 +7,7 @@ and the evidence that must be captured. Scenarios run on a clean Windows 11 x64 
 | ID | Scenario | Preconditions | Pass criteria | Evidence | Earliest milestone |
 |---|---|---|---|---|---|
 | A | Wake word | Mic configured, wake word on | "Jack" activates within 1 s; indicator → listening; spoken command transcribed; FA rate ≤ 1 per 8 h of mixed TV/speech audio; miss rate ≤ 5 % over 100 utterances, 3 speakers | Screen recording, wake-word evaluation report | M3 |
-| B | Website development | Anthropic API or Claude Code configured | Asks requirements one at a time; creates project; builds site; tests pass; deployment plan prepared (not executed) | Task timeline export, test report, repo diff | M11 |
+| B | Website development | Anthropic API or Claude Code configured | Asks requirements one at a time (**M5: done** — typed and spoken, verified in the release-build e2e); creates project; builds site; tests pass; deployment plan prepared (not executed) | Task timeline export, test report, repo diff | M11 |
 | C | Existing app upgrade | GitHub connected; repo with uncommitted changes | Uncommitted work preserved (stash or worktree); new branch; tests run; PR opened; no force-push | `git reflog`, PR URL, test report | M11 |
 | D | Ubuntu diagnosis | SSH profile with verified host key | Connects as deploy user; collects CPU/mem/disk/services/logs; findings cite command output | Diagnostics report with raw outputs | M10 |
 | E | Production deploy | Staging verified | Shows target host, release id, backup status, plan; waits for approval; deploys; health + external URL verified; rollback available | Deployment report, approval audit row | M13 |

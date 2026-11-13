@@ -42,6 +42,7 @@ The desktop app sets these for you. They only matter when running the service by
 | Voice Assistant → Speech models | Downloaded Whisper models | `%LOCALAPPDATA%\ai.jack.desktop\models\` (override: `JACK_MODELS_DIR`) |
 | Tray | Mute microphone | Same as above |
 | Usage and Billing | Anthropic model, effort, timeout, retries, refusal fallback; Claude Code on/off, path, model; routing; provider fallback; spending limits and alert thresholds | Service database, `settings` table, key `ai` |
+| Command Centre → How JACK asks | Understanding engine (Claude when set up, or local rules only), when to ask for approval (medium and large jobs, or every job), listen for the answer after a spoken question | Service database, `settings` table, key `discovery.settings` |
 | Usage and Billing → Anthropic API key | The API key | **Windows Credential Manager** (service `JACK AI`, name `anthropic:api_key`); never in the database or logs |
 
 The push-to-talk hotkey is fixed to **Ctrl+Shift+Space** in this version.

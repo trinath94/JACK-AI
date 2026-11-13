@@ -83,6 +83,11 @@ describe("App", () => {
     const posted = service.state.calls.filter((c) => c.path === "/v1/discovery/messages").map((c) => c.body as { session_id: string | null });
     expect(posted[0]!.session_id).toBeNull();
     expect(posted[1]!.session_id).toBe("sess-1");
+    // Navigating away and back keeps the conversation: the next message still answers it.
+    fireEvent.keyDown(window, { key: "2", ctrlKey: true });
+    fireEvent.keyDown(window, { key: "1", ctrlKey: true });
+    expect(await screen.findByTestId("discovery-exchange")).toHaveTextContent(/Would you like a corporate website/);
+    await waitFor(() => expect(screen.getByLabelText("Command")).toHaveAttribute("placeholder", "Answer JACK…"));
     act(() => ws.emit("task.created", TASK));
     const list = await screen.findByRole("list", { name: "Recent tasks" });
     expect(within(list).getByText("Build a corporate website")).toBeInTheDocument();
