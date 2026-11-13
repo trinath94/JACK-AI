@@ -29,7 +29,7 @@ branch, and a report in `docs/milestones/`.
 
 | ID | Decision | Proposed | Needed by |
 |---|---|---|---|
-| D-1 | PostgreSQL in a desktop install | Embedded portable PostgreSQL sidecar from M6; SQLite until then | M6 |
+| D-1 | PostgreSQL in a desktop install | **Approved 2026-11-13:** embedded PostgreSQL from M6; SQLite keeps local preferences | M6 (decided) |
 | D-2 | Code-signing certificate | You provide an OV/EV certificate or Azure Trusted Signing account | M18 |
 | D-3 | Dedicated wake-word model | M3 shipped `keyword-asr` (MIT-only, no decision needed). Optional upgrade: train a custom openWakeWord model with commercially licensed training data, if the field miss rate is too high | After field testing |
 | D-4 | Image provider(s) for M14 | Choose at least one (e.g. OpenAI Images, Stability AI, Google Imagen) | M14 |

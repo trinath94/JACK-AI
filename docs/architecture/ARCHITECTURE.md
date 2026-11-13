@@ -158,10 +158,8 @@ scripts installer docker .github/workflows
 | Temporal (SQLite file) | workflow event history | `temporal server start-dev --db-filename` sidecar, loopback only [M6] |
 | Redis | not used | Not justified for a single-user desktop; revisit only for a shared multi-user deployment |
 
-> **Open decision for approval (D-1).** Section 2 fixes PostgreSQL for task history. Shipping
-> PostgreSQL inside a desktop installer adds ~60 MB and a second supervised server. Proposal:
-> keep PostgreSQL as specified, embedded, introduced at M6; SQLite carries M1–M5. No change is
-> made to the approved stack without your sign-off.
+> **Decision D-1 — approved 2026-11-13:** PostgreSQL embedded in the desktop install from M6,
+> as specified in Section 2; SQLite keeps local preferences. See §6c.
 
 ## 6. AI provider layer (implemented in M4)
 
@@ -284,6 +282,66 @@ implementation:
 **Storage:** `requirement_sessions` (one per task: category, engine, status, answers with their
 source — user, default, inferred — conflicts, specification JSON, scale) and
 `requirement_turns` (the conversation), migration 0005.
+
+## 6c. Durable task orchestration (Milestone 6)
+
+**Decision D-1 (approved 2026-11-13): embedded PostgreSQL.** The service owns three stores:
+
+| Store | Holds | Process |
+|---|---|---|
+| PostgreSQL 16.15 (+ pgvector 0.8.7 for M8), embedded | tasks, steps, approvals, audit, discovery, usage, voice history — everything except preferences | `postgres` started by the service on `127.0.0.1:<random port>`, data in `data\pg16`. Binaries from the `pixeltable-pgserver` wheel (PostgreSQL Licence; wrapper Apache-2.0). Superuser-less role `jack`, SCRAM password generated at first start and kept in Windows Credential Manager (POSIX dev builds: OS keyring, else a 0600 file next to the cluster, which is no weaker than the cluster files themselves) |
+| SQLite `data\prefs.db` | preferences (`settings`) | in-process |
+| SQLite `data\temporal\temporal.db` | Temporal workflow history | Temporal dev server (Temporal CLI 1.9.1 / Server 1.32.0, MIT), started by the service on `127.0.0.1:<random port>`, headless |
+
+* **One-time move from SQLite.** On the first start with PostgreSQL, an existing `jack.db` is
+  copied table by table (FK order) into PostgreSQL migrated to head; row counts and the audit
+  hash chain are verified; preferences go to `prefs.db`; the old file is kept as
+  `jack.db.pre-postgres-<timestamp>`. Any failure rolls back and JACK keeps running on SQLite,
+  with a notification and the `database` health component degraded — never a silent split.
+* **Fallback.** If PostgreSQL can't run (no secure store for its password on Windows, binaries
+  missing, running as root on POSIX, start-up failure), JACK uses SQLite and says why.
+  `JACK_DATABASE_URL` still overrides everything (tests, CI, a server you run yourself).
+* **Child processes.** Windows: started through `pg_ctl` (it drops administrator rights, which
+  `postgres.exe` requires) and inside the supervisor's Job Object, so killing JACK kills them.
+  Linux/macOS: started directly with a parent-death signal, so a killed service can't orphan
+  them; stale servers from a crash are detected (pid files) and stopped before start.
+
+**Temporal workflows.** The service runs a Temporal worker (Python SDK) in-process.
+Every task that leaves requirement discovery (PLANNING) gets a `TaskWorkflow` with id
+`task-<task id>`:
+
+```
+PLANNING  plan_task: steps from the category's plan template (task_steps rows)
+EXECUTION for each step:  [approval gate if the step needs one]  →  run_step activity
+          signals: pause · resume · cancel · capabilities_changed (re-check blocked steps)
+COMPLETED summary + artifacts      FAILED → retry (new run continues from the first
+                                    unfinished step; finished steps are never redone)
+```
+
+* **Authoritative state is in PostgreSQL**, not in the workflow: activities read and write
+  `task_steps`, `tasks`, `approvals`, the audit log and WebSocket events. Workflows only hold ids,
+  so a replay never duplicates side effects that an activity already recorded.
+* **Steps** have an executor, an agent role (one of the 17 from Section 7, used from M7), and an
+  `idempotent` flag. In-flight activities that are lost in a crash are retried by Temporal only
+  if idempotent; otherwise the step becomes `needs_review` and the task waits for you.
+* **Executors in M6:** `reasoning.document` (Claude writes a deliverable — research answer,
+  document, architecture or audit plan — saved under `data\workspaces\<task>\` as an artifact)
+  and `deliver` (completion summary). Every other step names the capability and milestone it
+  needs (agents M7, GitHub M9, SSH M10, building M11, testing M12, deployment M13, creative
+  M14, Windows/browser M15): the workflow pauses there honestly instead of pretending, and
+  continues when that capability exists. Without Claude configured, reasoning steps pause with
+  "set up Claude in Usage and Billing".
+* **Approvals** (`approvals` table): bound to one action, one target, a scope (spec/plan hash)
+  and an expiry, with a single-use nonce; decided only through the authenticated local API by
+  the user (button, or a spoken "yes" while JACK is asking). The workflow learns of a decision
+  by signal but **verifies it in the database** before continuing, because Temporal's loopback
+  port has no authentication: a forged signal can't approve anything. Spec approval from M5
+  becomes the first approval type (`task.execute`); step approvals use the same path.
+* **Pause / resume / cancel / retry** from the UI or API become signals; the workflow applies
+  them at the next safe point (a running step finishes, or is cancelled for cancel).
+* **Recovery (Test H / Test J).** On start-up JACK reconciles every unfinished task with its
+  workflow: running → resumes by itself; step lost mid-flight and not idempotent → needs review;
+  workflow missing → needs review. One notification summarises what resumed and what needs you.
 
 ## 7. Task model (summary)
 
