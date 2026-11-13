@@ -65,7 +65,7 @@ Voice works end to end. After JACK asks a question it keeps listening for 8 seco
 | Rust | 5 + 1 passed; fmt, clippy clean | [rust-tests.txt](evidence-m5/rust-tests.txt), [rust-lint.txt](evidence-m5/rust-lint.txt) |
 | `pnpm audit --prod` | no known vulnerabilities | [pnpm-audit.txt](evidence-m5/pnpm-audit.txt) |
 | **End-to-end, release build (M1 + voice + AI + discovery)** | **31/31 passed** | [e2e-linux-smoke.txt](evidence-m5/e2e-linux-smoke.txt) |
-| GitHub Actions CI | _see §6_ | |
+| GitHub Actions CI | **5/5 jobs green** (§6) | [run 43370355337](https://github.com/trinath94/jack-ai/actions/runs/43370355337) |
 
 ### What the discovery tests prove (74 new service tests, 4 UI tests, 6 e2e checks)
 
@@ -164,7 +164,21 @@ Unusual names can be misheard, so the spec lists every answer and each one can b
 
 ## 6. CI
 
-_Filled in after the run on this branch._
+[Run 43370355337](https://github.com/trinath94/jack-ai/actions/runs/43370355337) on commit `bf59d29`: **all 5 jobs passed.**
+
+| Job | Result |
+|---|---|
+| Python service (SQLite + PostgreSQL, ruff, mypy, pip-audit, real-model speech tests) | ✅ |
+| Frontend (type drift check, `tsc`, 39 tests, build) | ✅ |
+| Rust core (fmt, clippy, tests incl. supervisor integration) | ✅ |
+| End-to-end, Linux release build (virtual display + microphone, real speech models, fake Anthropic API) | ✅ **31/31 PASS**, including the typed conversation to approval and the spoken answer captured by follow-up listening ("Green Valley Bakery") on GitHub's runner |
+| Windows x64 (service tests incl. SAPI and Credential Manager, frozen sidecar smoke, NSIS + MSI) | ✅ |
+
+Earlier checkpoint runs on this branch failed twice:
+- Run [43365789987](https://github.com/trinath94/jack-ai/actions/runs/43365789987): the generated shared types were committed one commit later than the routes, so the type drift check failed. That's expected for a checkpoint commit.
+- Run [43366261963](https://github.com/trinath94/jack-ai/actions/runs/43366261963): defect 10 in §4.
+
+The installers are unsigned (no signing certificate configured).
 
 ## 7. How to try it on Windows
 
