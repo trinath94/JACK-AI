@@ -107,6 +107,10 @@ export interface BackendContextValue {
   metrics: SystemMetrics | null;
   /** Monotonic counter bumped on events that change the audit log, for cheap refreshes. */
   activity: number;
+  /** Bumped whenever a requirements conversation changes (M5). */
+  discoveryTick: number;
+  /** When JACK is listening for the answer to its question, without the wake word. */
+  followUpUntil: number | null;
   refreshTasks(): Promise<void>;
   refreshVoice(): Promise<void>;
   startPtt(): Promise<void>;
@@ -147,6 +151,8 @@ export function BackendProvider({
   const [unread, setUnread] = useState(0);
   const [metrics, setMetrics] = useState<SystemMetrics | null>(null);
   const [activity, setActivity] = useState(0);
+  const [discoveryTick, setDiscoveryTick] = useState(0);
+  const [followUpUntil, setFollowUpUntil] = useState<number | null>(null);
   const connKey = useRef<string | null>(null);
 
   // Track supervisor state; fetch a new connection whenever the service (re)starts.
@@ -284,6 +290,14 @@ export function BackendProvider({
           void refreshAI().catch(() => {});
           setActivity((n) => n + 1);
           break;
+        case "discovery.updated":
+        case "discovery.settings":
+          setDiscoveryTick((n) => n + 1);
+          setActivity((n) => n + 1);
+          break;
+        case "voice.followup":
+          setFollowUpUntil(Date.now() + e.data.wait_s * 1000);
+          break;
       }
     };
     const s = new JackSocket(conn, { onEvent, onState: setSocket, WebSocketImpl });
@@ -332,6 +346,8 @@ export function BackendProvider({
     unread,
     metrics,
     activity,
+    discoveryTick,
+    followUpUntil,
     refreshTasks,
     refreshVoice,
     startPtt: () => runVoice((a) => a.pttStart("ui")),

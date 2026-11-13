@@ -1,4 +1,4 @@
-import type { AuditEvent, TaskDetail } from "@jack/shared-types";
+import type { AuditEvent, DiscoveryResult, TaskDetail } from "@jack/shared-types";
 import { CornerDownLeft, RotateCcw, ShieldCheck, X } from "lucide-react";
 import { useEffect, useState, type FormEvent, type ReactNode, type RefObject } from "react";
 import { PushToTalk } from "../components/PushToTalk";
@@ -18,7 +18,9 @@ const LATER_INTEGRATIONS = [
   { name: "Deployments", milestone: 13 },
 ];
 
-export function HomePage({ commandRef, shortcut }: { commandRef: RefObject<HTMLInputElement | null>; shortcut: string | null }) {
+export function HomePage({ commandRef, shortcut, onOpenCommand }: {
+  commandRef: RefObject<HTMLInputElement | null>; shortcut: string | null; onOpenCommand?: () => void;
+}) {
   const { supervisor, socket, voice, voiceLevel, lastUtterance, lastReply, wokeAt, voiceError, clearVoiceError } = useBackend();
   const online = supervisor.state === "running" && socket === "open";
   const orb: OrbState = !online ? "offline" : (voice?.state ?? "idle");
@@ -47,7 +49,7 @@ export function HomePage({ commandRef, shortcut }: { commandRef: RefObject<HTMLI
               </button>
             </p>
           )}
-          <CommandBox online={online} inputRef={commandRef} />
+          <CommandBox online={online} inputRef={commandRef} onOpenCommand={onOpenCommand} />
         </Card>
         <CurrentTask />
         <RecentTasks />
@@ -112,25 +114,58 @@ function VoiceChips() {
   );
 }
 
-function CommandBox({ online, inputRef }: { online: boolean; inputRef: RefObject<HTMLInputElement | null> }) {
-  const { api } = useBackend();
+const OPEN_DISCOVERY = new Set(["choosing_category", "asking", "resolving_conflict", "awaiting_approval", "changing"]);
+
+interface Exchange { sessionId: string; reply: string; options: string[]; open: boolean }
+
+function CommandBox({ online, inputRef, onOpenCommand }: {
+  online: boolean; inputRef: RefObject<HTMLInputElement | null>; onOpenCommand?: () => void;
+}) {
+  const { api, discoveryTick } = useBackend();
   const [command, setCommand] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [ex, setEx] = useState<Exchange | null>(null);
+  const [dismissed, setDismissed] = useState<string | null>(null);
 
-  async function submit(e: FormEvent) {
-    e.preventDefault();
-    if (!api || !command.trim()) return;
+  // Show the conversation JACK is waiting on (also after navigating away and back), and keep the
+  // question current when it moves on elsewhere (voice, Command Centre).
+  useEffect(() => {
+    if (!api) return;
+    let live = true;
+    const pick = ex ? Promise.resolve(ex.sessionId)
+      : api.discoverySessions(true).then((l) => l.find((s) => s.id !== dismissed)?.id ?? null);
+    pick.then((id) => (id ? api.discoverySession(id) : null)).then((s) => {
+      if (!s) return;
+      const last = [...(s.turns ?? [])].reverse().find((t) => t.role === "jack");
+      if (!live || !last) return;
+      const q = s.question;
+      const options = q?.kind === "slot" && q.input === "bool" ? ["Yes", "No"] : (q?.options ?? []).map((o) => o.label);
+      setEx({ sessionId: s.id, reply: last.text, options, open: OPEN_DISCOVERY.has(s.status) });
+    }).catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [api, discoveryTick, dismissed]);
+
+  async function send(text: string) {
+    if (!api || !text.trim()) return;
     setBusy(true);
     setError(null);
     try {
-      await api.createTask(command.trim(), "text");
+      const r: DiscoveryResult = await api.discoveryMessage(text.trim(), ex?.open ? ex.sessionId : undefined);
+      setEx({ sessionId: r.session.id, reply: r.reply.text, options: r.reply.options, open: r.reply.expects_answer });
       setCommand("");
     } catch (err) {
-      setError(err instanceof ApiRequestError ? err.message : "Could not create task");
+      setError(err instanceof ApiRequestError ? err.message : "Could not send that to JACK");
     } finally {
       setBusy(false);
     }
+  }
+
+  function submit(e: FormEvent) {
+    e.preventDefault();
+    void send(command);
   }
 
   return (
@@ -142,7 +177,7 @@ function CommandBox({ online, inputRef }: { online: boolean; inputRef: RefObject
           ref={inputRef}
           value={command}
           onChange={(e) => setCommand(e.target.value)}
-          placeholder={online ? "Type a command for JACK…  (Ctrl+K)" : "Waiting for JACK service…"}
+          placeholder={!online ? "Waiting for JACK service…" : ex?.open ? "Answer JACK…" : "Type a command for JACK…  (Ctrl+K)"}
           disabled={!online || busy}
           maxLength={4000}
           className="min-w-0 flex-1 rounded-xl border border-[var(--border)] bg-[var(--bg)] px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-[var(--accent)] disabled:opacity-60"
@@ -155,9 +190,27 @@ function CommandBox({ online, inputRef }: { online: boolean; inputRef: RefObject
           <CornerDownLeft className="h-4 w-4" aria-hidden /> Send
         </button>
       </form>
-      <p className="max-w-2xl text-center text-xs text-[var(--muted)]">
-        Commands are recorded as durable tasks. JACK starts planning and executing them from Milestones 5–7; until then they stay in <code>RECEIVED</code>.
-      </p>
+      {ex ? (
+        <div className="w-full max-w-2xl space-y-2 rounded-xl bg-[var(--hover)] px-4 py-3 text-sm" data-testid="discovery-exchange">
+          <p><span className="font-semibold text-[var(--accent)]">JACK:</span> {ex.reply}</p>
+          {ex.open && ex.options.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {ex.options.map((o) => (
+                <button key={o} type="button" disabled={busy} onClick={() => void send(o)}
+                  className="rounded-full border border-[var(--border)] bg-[var(--panel)] px-3 py-1 text-xs hover:bg-[var(--hover)]">{o}</button>
+              ))}
+            </div>
+          )}
+          <div className="flex gap-3 text-xs">
+            {onOpenCommand && <button type="button" onClick={onOpenCommand} className="text-[var(--accent)] hover:underline">Open in Command Centre</button>}
+            {ex.open && <button type="button" onClick={() => { setDismissed(ex.sessionId); setEx(null); }} className="text-[var(--muted)] hover:underline">Start a new request instead</button>}
+          </div>
+        </div>
+      ) : (
+        <p className="max-w-2xl text-center text-xs text-[var(--muted)]">
+          JACK asks what it needs to know, one question at a time, then writes a specification. Planning and building arrive in later milestones.
+        </p>
+      )}
       {error && <p role="alert" className="text-sm text-rose-500">{error}</p>}
     </>
   );

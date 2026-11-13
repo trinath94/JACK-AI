@@ -105,10 +105,35 @@ WebSocket topics added in M3: `voice.wake {transcript}`, `voice.reply {text}`, `
 
 WebSocket topics added in M4: `ai.status { changed }`, `ai.usage { provider, cost_usd | failed }`.
 
+### Requirement discovery — M5
+| Method | Path | Body | Response |
+|---|---|---|---|
+| POST | `/v1/discovery/messages` | `{ text, session_id?, source: typed|ui }` | `{ reply, session }`. Without `session_id` a new conversation and task start; with it, the text answers that conversation (409 if it is closed) |
+| GET | `/v1/discovery/sessions` | `?active=bool` | `[session]` (newest first, without turns) |
+| GET | `/v1/discovery/sessions/{id}` | – | session: `{ id, task_id, status, category, category_name, category_source, command, question, answers[], spec, notes, blocked_reason, turns[], created_at, updated_at, approved_at }` |
+| PUT | `/v1/discovery/sessions/{id}/answers/{slot}` | `{ value }` (option id, list of ids, text or boolean) | `{ reply, session }` · 400 for an unknown slot or a value outside its options |
+| POST | `/v1/discovery/sessions/{id}/approve` | – | `{ reply, session }` · 409 when nothing is waiting for approval |
+| POST | `/v1/discovery/sessions/{id}/cancel` | – | `{ reply, session }` |
+| POST | `/v1/tasks/{id}/answers` | `{ text }` | `{ reply, session }` (contract drafted before M5) |
+| GET | `/v1/tasks/{id}/spec` | – | `{ spec, status, session_id }` · 404 while requirements are still being gathered |
+| POST | `/v1/tasks/{id}/spec/approve` | – | `{ reply, session }` |
+| GET | `/v1/discovery/status` | – | `{ settings, using: claude|local, detail }` |
+| PATCH | `/v1/discovery/settings` | any of `engine(auto|local)`, `approval(auto|always)`, `followup_listen` | settings |
+| GET | `/v1/discovery/catalog` | – | `[{ id, name, description, questions }]` for the 19 categories |
+
+`reply` is `{ session_id, task_id, text, status, expects_answer, options[], slot, listen }`.
+Session `status`: `choosing_category`, `asking`, `resolving_conflict`, `awaiting_approval`,
+`changing`, `ready`, `cancelled`, `blocked`. The specification (`spec`) holds `title, category,
+summary, requirements[], assumptions[], open_questions[], scope{scale, components, rationale},
+integrations[], hosting, dependencies[{capability, milestone, available}], engines, notes,
+approval_required`.
+
+WebSocket topics added in M5: `discovery.updated { session_id, task_id, status }`,
+`discovery.settings`, `voice.followup { wait_s }`.
+
 ### Planned (contracts drafted, not implemented)
 | Area | Routes | Milestone |
 |---|---|---|
-| Requirements | `POST /v1/tasks/{id}/answers`, `GET /v1/tasks/{id}/spec`, `POST /v1/tasks/{id}/spec/approve` | M5 |
 | Approvals | `GET /v1/approvals?status=pending`, `POST /v1/approvals/{id}/decide` (user re-auth for privileged) | M6 |
 | Projects/Memory | `/v1/projects`, `/v1/projects/{id}/search` | M8 |
 | GitHub | `/v1/github/accounts`, `/v1/github/repos`, `/v1/github/repos/{id}/pulls` | M9 |

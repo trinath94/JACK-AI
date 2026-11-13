@@ -5,6 +5,25 @@ versioning: [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+### Added — Milestone 5 (requirement discovery)
+- Requirement discovery for the 19 task categories of Section 6: JACK identifies the kind of job,
+  then asks only the essential questions, one at a time, with options and a sensible default.
+- Understanding with Claude (schema-constrained JSON, validated against the catalogue) when a
+  provider is set up, or with local rules; Claude failures fall back to local rules for that turn.
+- Answers remembered and never asked twice; facts in the opening request are picked up;
+  "you decide", "use defaults", "cancel"; changes at review time; conflict detection.
+- Structured specification: requirements, assumptions, scope and size, integrations, hosting,
+  dependencies on JACK capabilities, open questions and notes.
+- Medium and large jobs wait for approval; small jobs go straight to planning. Task timeline:
+  UNDERSTANDING → REQUIREMENTS ⇄ WAITING_FOR_INFORMATION → (WAITING_FOR_APPROVAL) → PLANNING.
+- Security audits stop unless you confirm you own, or are allowed to test, the targets.
+- Voice: spoken commands go through discovery; after a question JACK listens for the answer for a
+  few seconds without the wake word (never when muted or in privacy mode).
+- **Command Centre** (Ctrl+6) with the conversation, an editable specification and approval; the
+  Home command box carries on the conversation.
+- Migration 0005: `requirement_sessions`, `requirement_turns`. Structured-output support in both
+  providers.
+
 ### Added — Milestone 4 (Claude provider abstraction)
 - AI provider layer with two providers behind one interface: the **Anthropic API** (official SDK
   2.8.0, your own key) and **Claude Code** (your installed CLI with its own sign-in).

@@ -15,6 +15,11 @@
 #      with speech models (JACK_MODELS_DIR) the command becomes a voice task
 #  10. (VOICE_E2E=1 + models) with the wake word on, "Hey Jack." → spoken reply →
 #      "Create a professional company logo." becomes a wake-triggered voice task
+#  12. Requirement discovery (M5): the typed command starts a conversation; JACK asks one
+#      question at a time, answers typed into the same box are remembered, the specification
+#      is approved by a typed reply and the task moves to PLANNING; with speech models, a
+#      spoken command gets a spoken question and the answer is captured by follow-up
+#      listening (no wake word)
 #  11. (AI_E2E=1) Usage and Billing: an Anthropic API key typed into the UI is stored (never
 #      written to the database or logs), "Test connection" reaches a local fake Messages
 #      API with the key as a Bearer token, and the call is recorded with an estimated cost
@@ -114,6 +119,47 @@ if [[ -n "$WIN" ]]; then
     || bad "typed command not persisted"
   sleep 1.5
   import -window root "$OUT/02-task-created.png"
+
+  # 12: requirement discovery through the same box (Ctrl+K refocuses it each time)
+  SID=$(q "select id from requirement_sessions order by created_at limit 1")
+  ASKED=$(q "select text from requirement_turns where role='jack' order by seq limit 1")
+  [[ "$ASKED" == *"What's the business called?"* ]] \
+    && ok "typed command started requirement discovery; JACK asked: \"${ASKED##*. }\"" \
+    || bad "no discovery question (got: $ASKED)"
+  answer() {  # answer "<text>": type a reply and wait until JACK has answered it
+    local before; before=$(q "select count(*) from requirement_turns where role='jack'")
+    xdotool windowactivate --sync "$WIN" 2>/dev/null || true
+    xdotool key ctrl+k; sleep 0.3
+    xdotool type --delay 15 "$1"
+    xdotool key Return
+    wait_until 15 q_ge "select count(*) from requirement_turns where role='jack'" $((before + 1))
+  }
+  answer "Acme Holdings"
+  sleep 1
+  import -window root "$OUT/10-discovery-question.png"
+  answer "A contact form and a blog"
+  answer "Please design them for me"
+  answer "On my own server"
+  ST=$(q "select status from requirement_sessions where id='$SID'")
+  NQ=$(q "select count(*) from requirement_turns where session_id='$SID' and role='jack'")
+  [[ "$ST" == awaiting_approval ]] \
+    && ok "one question at a time: $NQ replies, specification waiting for approval" \
+    || bad "discovery did not reach approval (status=$ST)"
+  xdotool key ctrl+6; sleep 2
+  import -window root "$OUT/11-command-centre-spec.png"
+  xdotool key ctrl+1; sleep 1
+  answer "Yes, go ahead"
+  TS=$(q "select t.status from tasks t join requirement_sessions r on r.task_id=t.id where r.id='$SID'")
+  TT=$(q "select t.title from tasks t join requirement_sessions r on r.task_id=t.id where r.id='$SID'")
+  HOST=$(q "select json_extract(spec,'$.hosting.choice') from requirement_sessions where id='$SID'")
+  [[ "$TS" == PLANNING && "$TT" == "Corporate website for Acme Holdings" && "$HOST" == own_server ]] \
+    && ok "specification approved; task \"$TT\" moved to PLANNING (hosting: $HOST)" \
+    || bad "approval: task=$TS title=$TT hosting=$HOST"
+  REPEAT=$(q "select count(*) - count(distinct slot) from requirement_turns where session_id='$SID' and role='jack' and slot is not null")
+  [[ "$REPEAT" == 0 ]] && ok "no question was asked twice" || bad "$REPEAT questions repeated"
+  xdotool key ctrl+6; sleep 2
+  import -window root "$OUT/12-command-centre-approved.png"
+  xdotool key ctrl+1; sleep 1
 fi
 
 # 11: AI provider setup through the UI against a local fake Anthropic API
@@ -176,6 +222,19 @@ if [[ "${VOICE_E2E:-0}" == 1 && -n "$WIN" ]]; then
       || bad "spoken command not recognised (got: $CMD)"
     TURNS=$(q "select count(*) from voice_turns")
     [[ "${TURNS:-0}" -ge 2 ]] && ok "conversation history recorded ($TURNS turns)" || bad "no conversation history"
+    # 12 (voice): JACK spoke a question and keeps listening for the answer, no wake word.
+    VSID=$(q "select r.id from requirement_sessions r join tasks t on t.id=r.task_id where t.source='voice' order by r.created_at desc limit 1")
+    wait_until 20 q_ge "select count(*) from audit_events where action='voice.followup.start'" 1 \
+      && ok "JACK asked \"$(q "select text from requirement_turns where session_id='$VSID' and role='jack' order by seq desc limit 1" | sed 's/.*\. //')\" and kept listening (follow-up)" \
+      || bad "no follow-up listening after the spoken question"
+    sleep 0.6
+    # A name speech recognition hears reliably from the synthetic voice (3/3 at 140–160 wpm;
+    # "Acme Holdings" was 1/3, see the M5 report).
+    say "It's called Green Valley Bakery."
+    wait_until 30 q_ge "select count(*) from requirement_turns where session_id='$VSID' and role='user' and source='voice'" 2 || true
+    ANS=$(q "select json_extract(state,'$.answers.business_name.value') from requirement_sessions where id='$VSID'")
+    [[ "${ANS,,}" == "green valley bakery" ]] && ok "spoken answer captured without the wake word: business name \"$ANS\"" \
+      || bad "spoken answer not captured (got: $ANS)"
   else
     echo "SKIP  speech recognition (set JACK_MODELS_DIR with tiny.en and small.en)"
   fi

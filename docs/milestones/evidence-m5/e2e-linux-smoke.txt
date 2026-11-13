@@ -1,0 +1,32 @@
+PASS  supervisor started bundled sidecar (pid 28040)
+PASS  service started and migrated the database
+PASS  main window shown
+PASS  typed command persisted as task (WAITING_FOR_INFORMATION)
+PASS  typed command started requirement discovery; JACK asked: "What's the business called? If you're not sure, say “you decide”."
+PASS  one question at a time: 5 replies, specification waiting for approval
+PASS  specification approved; task "Corporate website for Acme Holdings" moved to PLANNING (hosting: own_server)
+PASS  no question was asked twice
+PASS  API key saved from the UI (audited as credential.set)
+PASS  Test connection reached the (fake) Anthropic API and was recorded
+PASS  usage recorded with an estimated cost ($0.000148)
+PASS  API received the stored key as a Bearer token, with refusal fallback on
+PASS  API key appears nowhere in the database or logs
+PASS  global hotkey Ctrl+Shift+Space opened the microphone (source=hotkey)
+PASS  releasing the hotkey closed the microphone after 5565 ms
+PASS  real audio levels arrived from the virtual microphone (no-audio watchdog silent)
+PASS  spoken command recognised and saved as a voice task: "Build a professional corporate website"
+PASS  conversation history recorded (2 turns)
+PASS  JACK asked "What's the business called? If you're not sure, say “you decide”." and kept listening (follow-up)
+PASS  spoken answer captured without the wake word: business name "Green Valley Bakery"
+PASS  service restarted after SIGKILL (old 28040, new 28753)
+PASS  audit records 2 service starts
+PASS  old service tree exited (no orphan after crash)
+PASS  app still running after window close (tray)
+PASS  no service processes after SIGTERM quit
+PASS  wake word standby started after relaunch (setting persisted)
+PASS  spoken "Hey Jack" detected by the wake word engine
+PASS  wake-word command saved as a voice task: "Create a professional company logo"
+PASS  conversation recorded as a wake-word session
+PASS  service shut itself down after the app was SIGKILLed
+PASS  audit chain links intact (linked 35 events)
+31/31 passed

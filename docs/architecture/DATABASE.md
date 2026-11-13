@@ -33,9 +33,9 @@ migration of the milestone noted.
 | `ai_models` | id, provider_id, model_id, input_price_per_mtok, output_price_per_mtok, context_window | M4 |
 | `usage_records` | id, occurred_at, provider_id, billing_kind(api/claude_code), model_requested, model (that served the part), purpose, task_id?, project_id?, input/output/cache_read/cache_write tokens, cost_usd (nullable), cost_source(estimated/reported/unknown/none), succeeded, error_code, latency_ms, request_id — one row per model that served part of a call | **M4** (migration 0004) |
 | `spend_limits` | id, scope(global/project/task), scope_id?, period, limit_usd, alert_pct | M6 (M4: `settings.ai.limits`; alerts sent tracked in `settings.ai.alerts_sent`) |
-| `conversations` | id, task_id?, project_id?, summary, created_at | M5 |
-| `conversation_turns` | id, conversation_id, role, content, created_at | M5 |
-| `requirement_specs` | id, task_id, category, spec JSON, status(draft/approved), approved_by?, approved_at? | M5 |
+| `requirement_sessions` | id, task_id (unique), status, category, state JSON (answers with their source — user / inferred / default — and engine, questions asked, pending question, resolved conflicts, notes), spec JSON, created_at, updated_at, approved_at | **M5** (migration 0005) |
+| `requirement_turns` | id, session_id, seq, role(user/jack), text, slot?, source(voice/typed/ui)?, created_at | **M5** (migration 0005) |
+| `requirement_specs` | — | Superseded in M5: the specification is `requirement_sessions.spec`, one per task; approval is `approved_at` plus a `requirements.approve` audit event. A separate versioned table can follow with projects (M8) |
 | `workflow_runs` | id, task_id, temporal_workflow_id, run_id, status, started_at, ended_at | M6 |
 | `task_steps` | id, task_id, workflow_run_id, name, agent_id?, status, idempotent bool, attempt, input JSON, output JSON, started_at, ended_at | M6 |
 | `approvals` | id, task_id, action, target, scope JSON, risk_class, requested_by, status(pending/approved/denied/expired), decided_by_user_id?, decided_at?, expires_at, nonce | M6 |

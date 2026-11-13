@@ -65,9 +65,13 @@ def test_ptt_cycle_streams_level_then_recognises(
         assert utt["transcribed"] is True
         assert utt["transcript"] == "Build a corporate website"
         assert utt["task_id"]
+        # JACK asked a requirements question, so it keeps listening for the answer briefly.
+        assert "?" in utt["reply"]
+        assert _next_topic(conn, "voice.followup")["data"]["wait_s"] == 0.3
     finally:
         ws.__exit__(None, None, None)
-    wait_for(lambda: audio.streams[-1].closed)  # wake word off: mic closes after the command
+    # No answer: the follow-up ends; with the wake word off the microphone closes.
+    wait_for(lambda: audio.streams[-1].closed)
     actions = [a["action"] for a in client.get("/v1/audit").json()["items"]]
     assert "voice.capture.start" in actions and "voice.capture.stop" in actions
 
@@ -205,8 +209,9 @@ def test_microphone_delivering_no_audio_is_reported(client: TestClient, audio: F
     wait_for(lambda: engine.state.value == "idle")
     assert engine.last_result.stopped_by == "no_audio"
     assert audio.streams[0].closed
-    titles = [n["title"] for n in client.get("/v1/notifications").json()["items"]]
-    assert "No audio from microphone" in titles
+    # The notification is created just after the state changes; wait for it rather than race.
+    wait_for(lambda: "No audio from microphone" in
+             [n["title"] for n in client.get("/v1/notifications").json()["items"]])
 
 
 def test_watchdog_quiet_when_audio_flows(client: TestClient, audio: FakeAudio) -> None:

@@ -1,5 +1,11 @@
 import type {
   AICompletion,
+  DiscoveryCategory,
+  DiscoveryEngineStatus,
+  DiscoveryResult,
+  DiscoverySession,
+  DiscoverySettings,
+  SlotValue,
   AIModel,
   AIProviderId,
   AISettingsPatch,
@@ -186,6 +192,35 @@ export class JackApi {
   aiUsageRecords(limit = 20) {
     return this.request<{ items: UsageRecordRow[]; total: number }>("GET", `/v1/ai/usage/records?limit=${limit}`);
   }
+  // ---------------------------------------------------------------- requirement discovery (M5)
+  discoveryStatus() {
+    return this.request<DiscoveryEngineStatus>("GET", "/v1/discovery/status");
+  }
+  updateDiscoverySettings(patch: Partial<DiscoverySettings>) {
+    return this.request<DiscoverySettings>("PATCH", "/v1/discovery/settings", patch);
+  }
+  discoveryCatalog() {
+    return this.request<DiscoveryCategory[]>("GET", "/v1/discovery/catalog");
+  }
+  discoveryMessage(text: string, sessionId?: string) {
+    return this.request<DiscoveryResult>("POST", "/v1/discovery/messages", { text, session_id: sessionId ?? null, source: sessionId ? "ui" : "typed" });
+  }
+  discoverySessions(active = false) {
+    return this.request<DiscoverySession[]>("GET", `/v1/discovery/sessions?active=${active}`);
+  }
+  discoverySession(id: string) {
+    return this.request<DiscoverySession>("GET", `/v1/discovery/sessions/${encodeURIComponent(id)}`);
+  }
+  setDiscoveryAnswer(id: string, slot: string, value: SlotValue) {
+    return this.request<DiscoveryResult>("PUT", `/v1/discovery/sessions/${encodeURIComponent(id)}/answers/${encodeURIComponent(slot)}`, { value });
+  }
+  approveSpec(id: string) {
+    return this.request<DiscoveryResult>("POST", `/v1/discovery/sessions/${encodeURIComponent(id)}/approve`);
+  }
+  cancelDiscovery(id: string) {
+    return this.request<DiscoveryResult>("POST", `/v1/discovery/sessions/${encodeURIComponent(id)}/cancel`);
+  }
+
   verifyAudit() {
     return this.request<{ valid: boolean; checked: number; first_invalid_seq: number | null }>(
       "GET",

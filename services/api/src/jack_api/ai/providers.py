@@ -86,6 +86,8 @@ class Request:
     max_tokens: int = 4096
     effort: str | None = None
     max_budget_usd: float | None = None
+    # Schema-constrained JSON output; the reply text is then a JSON document.
+    json_schema: dict[str, Any] | None = None
 
 
 class Provider(Protocol):
@@ -141,8 +143,13 @@ class AnthropicApiProvider:
         if req.system:
             kwargs["system"] = req.system
         effort = req.effort or cfg.effort
+        output_config: dict[str, Any] = {}
         if effort and model not in NO_EFFORT_MODELS:
-            kwargs["output_config"] = {"effort": effort}
+            output_config["effort"] = effort
+        if req.json_schema is not None:
+            output_config["format"] = {"type": "json_schema", "schema": req.json_schema}
+        if output_config:
+            kwargs["output_config"] = output_config
         start = time.monotonic()
         try:
             if cfg.refusal_fallback and model in SERVER_FALLBACK_MODELS:
@@ -334,6 +341,8 @@ class ClaudeCodeProvider:
             args += ["--max-budget-usd", f"{req.max_budget_usd:.4f}"]
         if req.system:
             args += ["--append-system-prompt", req.system]
+        if req.json_schema is not None:
+            args += ["--json-schema", json.dumps(req.json_schema, separators=(",", ":"))]
         start = time.monotonic()
         # An empty working directory: a plain completion must not read the user's files.
         with tempfile.TemporaryDirectory(prefix="jack-cc-") as cwd:
@@ -364,7 +373,10 @@ class ClaudeCodeProvider:
                                    cache_write_5m=int(usage.get("cache_creation_input_tokens", 0))))
         cost = data.get("total_cost_usd")
         served = parts[0].model if parts else (model or "claude-code")
-        return Completion(text=str(data.get("result") or "").strip(),
+        structured = data.get("structured_output")
+        text = (json.dumps(structured) if isinstance(structured, (dict, list))
+                else str(data.get("result") or "").strip())
+        return Completion(text=text,
                           model_requested=model or "claude-code default", model_served=served,
                           stop_reason=str(data.get("subtype") or "success"), usage=parts,
                           billing_kind="claude_code", latency_ms=latency,

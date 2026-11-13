@@ -11,7 +11,7 @@ from enum import StrEnum
 
 from sqlalchemy import func, select
 
-from jack_api.audit import AuditLog
+from jack_api.audit import ActorType, AuditLog
 from jack_api.db import Database, Task, TaskEvent, utcnow
 
 
@@ -126,7 +126,8 @@ class TaskStore:
             rows = s.scalars(q.order_by(Task.updated_at.desc()).limit(limit).offset(offset)).all()
             return list(rows), total
 
-    def transition(self, task_id: str, target: TaskStatus, reason: str | None, actor: str) -> Task:
+    def transition(self, task_id: str, target: TaskStatus, reason: str | None, actor: str,
+                   actor_type: ActorType = "user") -> Task:
         with self._db.session() as s:
             task = s.get(Task, task_id, with_for_update=True)
             if task is None:
@@ -134,7 +135,7 @@ class TaskStore:
             current = TaskStatus(task.status)
             resume = TaskStatus(task.resume_status) if task.resume_status else None
             if target not in allowed_targets(current, resume):
-                self._audit.record("task.transition", outcome="denied", actor_type="user",
+                self._audit.record("task.transition", outcome="denied", actor_type=actor_type,
                                    actor_id=actor, target=f"task:{task_id}",
                                    details={"from": current, "to": target})
                 raise InvalidTransition(current, target)
@@ -154,9 +155,18 @@ class TaskStore:
                                  .where(TaskEvent.task_id == task_id)) or 0) + 1
             s.add(TaskEvent(task_id=task_id, seq=next_seq, from_status=current, to_status=target,
                             reason=reason, actor=actor, occurred_at=now))
-        self._audit.record("task.transition", outcome="allowed", actor_type="user",
+        self._audit.record("task.transition", outcome="allowed", actor_type=actor_type,
                            actor_id=actor, target=f"task:{task_id}",
                            details={"from": current, "to": target})
+        return task
+
+    def rename(self, task_id: str, title: str) -> Task:
+        with self._db.session() as s:
+            task = s.get(Task, task_id)
+            if task is None:
+                raise TaskNotFound(task_id)
+            task.title = title.strip()[:255] or task.title
+            task.updated_at = utcnow()
         return task
 
     def resume(self, task_id: str, reason: str | None, actor: str) -> Task:

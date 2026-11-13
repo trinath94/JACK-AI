@@ -169,6 +169,36 @@ class UsageRecord(Base):
     request_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
 
 
+class RequirementSession(Base):
+    """Requirement discovery for one task (Section 6). ``state`` holds answers and progress."""
+
+    __tablename__ = "requirement_sessions"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    task_id: Mapped[str] = mapped_column(ForeignKey("tasks.id", ondelete="CASCADE"),
+                                         unique=True)
+    status: Mapped[str] = mapped_column(String(32), index=True)
+    category: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    state: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    spec: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow,
+                                                 index=True)
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class RequirementTurn(Base):
+    __tablename__ = "requirement_turns"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    session_id: Mapped[str] = mapped_column(
+        ForeignKey("requirement_sessions.id", ondelete="CASCADE"), index=True)
+    seq: Mapped[int] = mapped_column(Integer)
+    role: Mapped[str] = mapped_column(String(8))  # user | jack
+    text: Mapped[str] = mapped_column(Text)
+    slot: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    source: Mapped[str | None] = mapped_column(String(16), nullable=True)  # voice | typed | ui
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class Database:
     def __init__(self, url: str) -> None:
         self.url = url

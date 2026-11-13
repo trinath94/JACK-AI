@@ -23,6 +23,10 @@
 | "AI request blocked: monthly spending limit" | The limit you set was reached | Raise or clear the limit in Usage and Billing → Spending limits |
 | Claude Code "not installed" or "not signed in" | Claude Code is missing, not on PATH, or signed out | Install Claude Code, run `claude` once and sign in, then press Detect. If it's installed somewhere unusual, set its path in settings |
 | Costs show "—" or "no price data" | The model is newer than JACK's price table | Usage is still recorded; the cost is not guessed. Your Anthropic invoice has the real figure |
+| JACK keeps asking the same question | It didn't understand the answer | Use one of the suggested answers, say "you decide", or edit the answer in the Command Centre. After two tries JACK uses the usual choice and notes it in the specification |
+| My new request was taken as an answer | A conversation was still waiting for an answer (for 30 minutes) | Start with a clear request ("Jack, build…", "Create…"), press **Start a new request instead** on Home, or say "cancel" first |
+| Answers in my own words aren't understood | JACK is using local rules (no Claude provider set up, or *Local rules only* chosen) | Set up Claude in Usage and Billing; the Command Centre shows which one is in use |
+| "I can only audit systems you own…" | You said no to the authorisation question of a security audit | Start again and confirm only if you own the systems or have written permission |
 
 ## Collecting diagnostics
 
