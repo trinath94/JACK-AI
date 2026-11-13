@@ -7,6 +7,7 @@ contract the orchestrator (M6) builds on.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from enum import StrEnum
 
 from sqlalchemy import func, select
@@ -60,7 +61,9 @@ _FORWARD: dict[TaskStatus, set[TaskStatus]] = {
 
 def allowed_targets(current: TaskStatus, resume_status: TaskStatus | None) -> set[TaskStatus]:
     if current in TERMINAL:
-        return {S.RECEIVED} if current is S.FAILED else set()
+        # A failed task can be retried: from the start, or (M6) from its plan, where finished
+        # steps are kept and the first unfinished one runs again.
+        return {S.RECEIVED, S.PLANNING} if current is S.FAILED else set()
     if current in HOLD:
         targets: set[TaskStatus] = {S.CANCELLED, S.FAILED}
         if resume_status is not None:
@@ -174,3 +177,24 @@ class TaskStore:
         if task.status not in HOLD or not task.resume_status:
             raise InvalidTransition(TaskStatus(task.status), TaskStatus(task.status))
         return self.transition(task_id, TaskStatus(task.resume_status), reason, actor)
+
+
+def move_to(store: TaskStore, task_id: str, target: TaskStatus, reason: str, actor: str,
+            publish: Callable[[str, Task], None] | None = None) -> Task:
+    """Transition a task, leaving a hold state (waiting/paused) first when the target is
+    elsewhere, so the recorded timeline stays valid. No-op if already there."""
+    task, _ = store.get(task_id)
+    if task.status == target:
+        return task
+    if (task.status in HOLD and target not in (S.CANCELLED, S.FAILED)
+            and task.resume_status and task.resume_status != target):
+        task = store.transition(task_id, TaskStatus(task.resume_status), reason, actor,
+                                actor_type="system")
+        if publish:
+            publish("task.updated", task)
+        if task.status == target:
+            return task
+    task = store.transition(task_id, target, reason, actor, actor_type="system")
+    if publish:
+        publish("task.updated", task)
+    return task

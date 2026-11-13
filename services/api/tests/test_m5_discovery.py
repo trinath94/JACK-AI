@@ -94,7 +94,7 @@ def test_website_conversation_follows_the_spec_example(client: TestClient) -> No
 
     r = say(client, "Yes, go ahead", sid)
     assert r["session"]["status"] == "ready" and r["session"]["approved_at"]
-    assert "later version" in r["reply"]["text"]  # no pretending to start work
+    assert "waits in planning" in r["reply"]["text"]  # orchestration off here: honest
     assert timeline(client, tid) == [
         "RECEIVED", "UNDERSTANDING", "REQUIREMENTS", "WAITING_FOR_INFORMATION",
         "REQUIREMENTS", "WAITING_FOR_APPROVAL", "REQUIREMENTS", "PLANNING"]
@@ -126,7 +126,7 @@ def test_small_job_skips_approval(client: TestClient) -> None:
     assert s["status"] == "ready" and not s["spec"]["approval_required"]
     assert s["spec"]["scope"]["scale"] == "small"
     assert not r["reply"]["expects_answer"]
-    assert "later version" in r["reply"]["text"]
+    assert "waits in planning" in r["reply"]["text"]
     assert task(client, tid)["status"] == "PLANNING"
     assert "WAITING_FOR_APPROVAL" not in timeline(client, tid)
 

@@ -1,6 +1,7 @@
 import type { AuditEvent, DiscoveryResult, TaskDetail } from "@jack/shared-types";
-import { CornerDownLeft, RotateCcw, ShieldCheck, X } from "lucide-react";
+import { CornerDownLeft, RotateCcw, X } from "lucide-react";
 import { useEffect, useState, type FormEvent, type ReactNode, type RefObject } from "react";
+import { ApprovalList } from "../components/ApprovalList";
 import { PushToTalk } from "../components/PushToTalk";
 import { Card, Meter, Pill, formatBytes, formatTime, healthTone, taskTone, usd } from "../components/ui";
 import { VoiceOrb, type OrbState } from "../components/VoiceOrb";
@@ -59,10 +60,7 @@ export function HomePage({ commandRef, shortcut, onOpenCommand }: {
         <ServiceCard />
         <ResourcesCard />
         <Card title="Approval queue">
-          <p className="flex items-start gap-2 text-sm text-[var(--muted)]">
-            <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
-            No pending approvals. Agents request approvals for privileged actions from Milestone 6; each request will appear here, tied to one action, one target and an expiry.
-          </p>
+          <ApprovalList />
         </Card>
         <RecentEvents />
         <IntegrationsCard />

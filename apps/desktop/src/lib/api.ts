@@ -1,5 +1,8 @@
 import type {
   AICompletion,
+  Approval,
+  OrchestratorStatus,
+  TaskExecution,
   DiscoveryCategory,
   DiscoveryEngineStatus,
   DiscoveryResult,
@@ -52,6 +55,15 @@ export class JackApi {
     private readonly conn: BackendConnection,
     private readonly fetchImpl: typeof fetch = (...a) => fetch(...a),
   ) {}
+
+  private async requestText(path: string): Promise<string> {
+    const res = await this.fetchImpl(`${this.conn.baseUrl}${path}`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${this.conn.token}` },
+    });
+    if (!res.ok) throw new ApiRequestError(res.status, "http_error", `HTTP ${res.status}`);
+    return res.text();
+  }
 
   private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
     const res = await this.fetchImpl(`${this.conn.baseUrl}${path}`, {
@@ -219,6 +231,26 @@ export class JackApi {
   }
   cancelDiscovery(id: string) {
     return this.request<DiscoveryResult>("POST", `/v1/discovery/sessions/${encodeURIComponent(id)}/cancel`);
+  }
+
+  // ---------------------------------------------------------------- orchestration (M6)
+  taskExecution(id: string) {
+    return this.request<TaskExecution>("GET", `/v1/tasks/${encodeURIComponent(id)}/execution`);
+  }
+  async artifactText(taskId: string, artifactId: string): Promise<string> {
+    return this.requestText(`/v1/tasks/${encodeURIComponent(taskId)}/artifacts/${encodeURIComponent(artifactId)}`);
+  }
+  retryTask(id: string) {
+    return this.request<{ retrying: boolean }>("POST", `/v1/tasks/${encodeURIComponent(id)}/retry`);
+  }
+  approvals(status: "pending" | "approved" | "denied" | "" = "pending") {
+    return this.request<Approval[]>("GET", `/v1/approvals?status=${status}`);
+  }
+  decideApproval(id: string, decision: "approve" | "deny", nonce: string) {
+    return this.request<Approval>("POST", `/v1/approvals/${encodeURIComponent(id)}/decide`, { decision, nonce });
+  }
+  orchestratorStatus() {
+    return this.request<OrchestratorStatus>("GET", "/v1/orchestrator/status");
   }
 
   verifyAudit() {

@@ -3,6 +3,7 @@ runs its normal request/response path (auth header, JSON parsing, typed errors).
 
 from __future__ import annotations
 
+import asyncio
 import socket
 import threading
 import time
@@ -29,6 +30,8 @@ class FakeAnthropic:
         self.mode = "ok"  # ok | rate_limit | server_error | refusal | fallback
         self.reply = "OK"
         self.replies: list[str] = []  # queued replies (e.g. JSON), used before ``reply``
+        self.delay = 0.0  # seconds before answering /v1/messages (slow-step tests)
+        self.ok_budget: int | None = None  # answer this many more requests, then fail (500)
         self.usage = {"input_tokens": 12, "output_tokens": 5,
                       "cache_read_input_tokens": 0, "cache_creation_input_tokens": 0}
         self.requests: list[dict[str, Any]] = []
@@ -64,12 +67,18 @@ class FakeAnthropic:
         @app.post("/v1/messages")
         async def messages(request: Request) -> Any:
             body = await request.json()
+            if self.delay:
+                await asyncio.sleep(self.delay)
             self.requests.append({"headers": dict(request.headers), "body": body,
                                   "query": dict(request.query_params)})
             if presented_key(request) != VALID_KEY:
                 return error(401, "authentication_error", "invalid API key")
             if self.mode == "rate_limit":
                 return error(429, "rate_limit_error", "slow down")
+            if self.ok_budget is not None:
+                if self.ok_budget <= 0:
+                    return error(500, "api_error", "boom")
+                self.ok_budget -= 1
             if self.mode == "server_error":
                 return error(500, "api_error", "boom")
             model = body["model"]

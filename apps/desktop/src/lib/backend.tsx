@@ -109,6 +109,8 @@ export interface BackendContextValue {
   activity: number;
   /** Bumped whenever a requirements conversation changes (M5). */
   discoveryTick: number;
+  /** Bumped when a task step or an approval changes (M6). */
+  executionTick: number;
   /** When JACK is listening for the answer to its question, without the wake word. */
   followUpUntil: number | null;
   refreshTasks(): Promise<void>;
@@ -152,6 +154,7 @@ export function BackendProvider({
   const [metrics, setMetrics] = useState<SystemMetrics | null>(null);
   const [activity, setActivity] = useState(0);
   const [discoveryTick, setDiscoveryTick] = useState(0);
+  const [executionTick, setExecutionTick] = useState(0);
   const [followUpUntil, setFollowUpUntil] = useState<number | null>(null);
   const connKey = useRef<string | null>(null);
 
@@ -295,6 +298,11 @@ export function BackendProvider({
           setDiscoveryTick((n) => n + 1);
           setActivity((n) => n + 1);
           break;
+        case "task.step":
+        case "approval.updated":
+          setExecutionTick((n) => n + 1);
+          setActivity((n) => n + 1);
+          break;
         case "voice.followup":
           setFollowUpUntil(Date.now() + e.data.wait_s * 1000);
           break;
@@ -347,6 +355,7 @@ export function BackendProvider({
     metrics,
     activity,
     discoveryTick,
+    executionTick,
     followUpUntil,
     refreshTasks,
     refreshVoice,

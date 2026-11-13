@@ -172,7 +172,10 @@ def test_state_machine_invariants() -> None:
     for s in TaskStatus:
         targets = allowed_targets(s, TaskStatus.EXECUTION if s in HOLD else None)
         if s in TERMINAL:
-            assert targets <= {TaskStatus.RECEIVED}
+            # Only a failed task can leave a terminal state: retried from the start or (M6)
+            # from its plan.
+            assert targets <= ({TaskStatus.RECEIVED, TaskStatus.PLANNING}
+                               if s is TaskStatus.FAILED else set())
         else:
             assert TaskStatus.CANCELLED in targets and TaskStatus.FAILED in targets
         if s in ACTIVE:

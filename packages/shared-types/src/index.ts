@@ -68,6 +68,8 @@ export type WsEvent =
   | { type: "event"; topic: "notification.read"; ts: string; data: { ids: string[] } }
   | { type: "event"; topic: "system.metrics"; ts: string; data: SystemMetrics }
   | { type: "event"; topic: "voice.followup"; ts: string; data: { wait_s: number } }
+  | { type: "event"; topic: "task.step"; ts: string; data: { task_id: string; step_id?: string; key?: string; status?: StepStatus; planned?: number } }
+  | { type: "event"; topic: "approval.updated"; ts: string; data: { id: string; task_id: string; status: ApprovalStatus } }
   | { type: "event"; topic: "discovery.updated"; ts: string; data: { session_id: string; task_id: string; status: DiscoveryStatus } }
   | { type: "event"; topic: "discovery.settings"; ts: string; data: DiscoverySettings };
 
@@ -307,3 +309,71 @@ export interface DiscoveryResult {
 }
 
 export interface DiscoveryCategory { id: string; name: string; description: string; questions: number }
+
+// ------------------------------------------------------------------ durable orchestration (M6)
+export type StepStatus = "pending" | "running" | "done" | "blocked" | "waiting_approval" | "needs_review" | "skipped" | "failed";
+export type ApprovalStatus = "pending" | "approved" | "denied" | "expired" | "withdrawn";
+
+export interface TaskStep {
+  id: string;
+  seq: number;
+  key: string;
+  title: string;
+  kind: string;
+  agent_role: string;
+  idempotent: boolean;
+  needs_approval: boolean;
+  status: StepStatus;
+  attempts: number;
+  blocked_reason: string | null;
+  error: string | null;
+  output: Record<string, unknown> | null;
+  approval_id: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+}
+
+export interface TaskArtifact {
+  id: string;
+  name: string;
+  kind: "document" | "summary";
+  size_bytes: number;
+  sha256: string;
+  step_id: string | null;
+  path: string;
+  created_at: string;
+}
+
+export interface Approval {
+  id: string;
+  task_id: string;
+  step_id: string | null;
+  action: string;
+  target: string;
+  scope: Record<string, unknown>;
+  summary: string;
+  risk: "low" | "medium" | "high";
+  status: ApprovalStatus;
+  nonce: string | null;
+  requested_by: string;
+  requested_at: string;
+  expires_at: string;
+  decided_by: string | null;
+  decided_via: string | null;
+  decided_at: string | null;
+}
+
+export interface TaskExecution {
+  task_id: string;
+  summary: string | null;
+  steps: TaskStep[];
+  artifacts: TaskArtifact[];
+  approvals: Approval[];
+  runs: { workflow_id: string; run_id: string; status: string; started_at: string; ended_at: string | null }[];
+}
+
+export interface OrchestratorStatus {
+  status: "healthy" | "degraded" | "unhealthy";
+  detail: string;
+  recovered: { resumed?: number; started?: number; needs_review?: number };
+}

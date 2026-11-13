@@ -10,6 +10,7 @@ import os
 import platform
 import socket
 import sys
+import threading
 import time
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
@@ -39,14 +40,24 @@ from jack_api.health import (
 )
 from jack_api.metrics import SystemMetrics
 from jack_api.notifications import NotificationCentre
+from jack_api.orchestrator.activities import Deps
+from jack_api.orchestrator.approvals import ApprovalService
+from jack_api.orchestrator.executors import default_registry
+from jack_api.orchestrator.service import (
+    Orchestrator,
+    OrchestratorUnavailable,
+    orchestrator_status,
+)
 from jack_api.redaction import register_secret
 from jack_api.routes_ai import router as ai_router
 from jack_api.routes_discovery import router as discovery_router
 from jack_api.routes_m2 import router as m2_router
+from jack_api.routes_orchestration import router as orchestration_router
 from jack_api.routes_voice import router as voice_router
 from jack_api.security import LoopbackAuthMiddleware, token_matches
 from jack_api.settings_store import SettingsStore
 from jack_api.tasks import InvalidTransition, TaskNotFound, TaskStatus, TaskStore
+from jack_api.temporal_server import TemporalServer
 from jack_api.voice.asr import WAKE_MODEL, ModelManager, Recognizer
 from jack_api.voice.audio import AudioBackend, SoundDeviceBackend
 from jack_api.voice.engine import CommandResult, VoiceBlocked, VoiceEngine
@@ -77,6 +88,8 @@ class Services:
     ai: AIService
     discovery: DiscoveryEngine
     stores: Stores
+    approvals: ApprovalService
+    orchestrator: Orchestrator | None
 
 
 # Task states that deserve a notification (Section 22 alternative/terminal states).
@@ -152,6 +165,21 @@ def _ai_probe(ai: AIService) -> Any:
     return probe
 
 
+def _orchestrator_probe(o: Orchestrator | None) -> Any:
+    async def probe() -> ProbeResult:
+        status, detail = orchestrator_status(o)
+        return ProbeResult(status, detail)  # type: ignore[arg-type]
+
+    return probe
+
+
+def _signal_quietly(o: Orchestrator, approval: Any) -> None:
+    try:
+        o.approval_decided(approval)
+    except Exception:  # noqa: BLE001 - the workflow re-checks on its own; never fail a decision
+        log.exception("could not notify the workflow about approval %s", approval.id)
+
+
 def _voice_probe(voice: VoiceEngine) -> Any:
     async def probe() -> ProbeResult:
         caps = await asyncio.to_thread(voice.capabilities)
@@ -193,7 +221,7 @@ def create_app(settings: Settings, audio_backend: AudioBackend | None = None, *,
         models = ModelManager(settings.resolved_models_dir, hub.publish_threadsafe)
         history = VoiceHistory(db)
 
-        later: dict[str, DiscoveryEngine] = {}
+        later: dict[str, Any] = {}
 
         def on_command(text: str) -> CommandResult:
             # Voice answers go to the conversation that is waiting for one (Section 6).
@@ -213,8 +241,15 @@ def create_app(settings: Settings, audio_backend: AudioBackend | None = None, *,
         health.register("voice", _voice_probe(voice))
         for w in stores.warnings:
             notifications.create("database", "Database", w, level="warning")
+        def ai_publish(topic: str, data: Any) -> None:
+            hub.publish_threadsafe(topic, data)
+            orch = later.get("orchestrator")
+            # A provider set up or changed may unblock steps waiting for Claude.
+            if topic == "ai.status" and isinstance(orch, Orchestrator) and orch.ready:
+                threading.Thread(target=orch.capabilities_changed, daemon=True).start()
+
         ai = AIService(db, store, creds,
-                       audit, notifications, hub.publish_threadsafe,
+                       audit, notifications, ai_publish,
                        anthropic_base_url=settings.anthropic_base_url)
         health.register("ai", _ai_probe(ai))
 
@@ -222,13 +257,43 @@ def create_app(settings: Settings, audio_backend: AudioBackend | None = None, *,
             hub.publish_threadsafe(topic, schemas.TaskOut.model_validate(task)
                                    .model_dump(mode="json"))
 
+        approvals = ApprovalService(db, audit, hub.publish_threadsafe)
+        orchestrator: Orchestrator | None = None
+        if settings.temporal == "on":
+            deps = Deps(db=db, tasks=tasks, audit=audit, approvals=approvals,
+                        notifications=notifications, publish=hub.publish_threadsafe,
+                        publish_task=publish_task, workspaces=settings.data_dir / "workspaces",
+                        executors=default_registry(), complete=ai.complete,
+                        reasoning_ready=lambda: ai.reasoning_provider() is not None)
+            orchestrator = Orchestrator(deps, TemporalServer(settings.data_dir,
+                                                             logs_dir=settings.log_dir))
+            try:
+                orchestrator.start_server()  # main thread: see the PostgreSQL note above
+                await orchestrator.start()
+            except Exception as exc:  # noqa: BLE001 - JACK still works; tasks wait in planning
+                orchestrator.detail = f"Temporal unavailable: {exc}"
+                log.warning("task orchestration unavailable: %s", exc)
+                notifications.create("orchestrator", "Tasks can't run right now",
+                                     orchestrator.detail, level="warning")
+            later["orchestrator"] = orchestrator
+            approvals.on_decided(lambda a: _signal_quietly(orchestrator, a))
+        health.register("orchestrator", _orchestrator_probe(orchestrator))
+
+        def on_ready(task_id: str) -> str | None:
+            if orchestrator is None or not orchestrator.ready:
+                return ("Task orchestration isn't running right now, so the task waits in "
+                        "planning and starts automatically when it is.")
+            orchestrator.start_task(task_id)
+            return "I've started on it. You can follow every step in Active Tasks."
+
         discovery = DiscoveryEngine(db, tasks, audit, store, hub.publish_threadsafe, publish_task,
                                     complete=ai.complete,
-                                    provider_ready=lambda: ai.reasoning_provider() is not None)
+                                    provider_ready=lambda: ai.reasoning_provider() is not None,
+                                    approvals=approvals, on_ready=on_ready)
         later["discovery"] = discovery
         svc = Services(settings, db, audit, tasks, health, hub, time.monotonic(),
                        store, notifications, voice, SystemMetrics(settings.data_dir), models,
-                       history, ai, discovery, stores)
+                       history, ai, discovery, stores, approvals, orchestrator)
         if recognizer is None:
             # Load downloaded models now so the first command doesn't pause for seconds.
             for name in {WAKE_MODEL, voice.settings.asr_model}:
@@ -249,6 +314,8 @@ def create_app(settings: Settings, audio_backend: AudioBackend | None = None, *,
                 with contextlib.suppress(asyncio.CancelledError):
                     await t
             await asyncio.to_thread(audit.record, "service.stop", outcome="info")
+            if orchestrator is not None:
+                await orchestrator.stop()
             stores.close()
 
     app = FastAPI(title="JACK AI Local Service", version=VERSION, lifespan=lifespan,
@@ -359,17 +426,39 @@ def create_app(settings: Settings, audio_backend: AudioBackend | None = None, *,
     def transition(task_id: str, body: schemas.TaskTransition, request: Request) -> Any:
         return _transition(request, task_id, body.to_status, body.reason)
 
+    def _via_workflow(request: Request, task_id: str, action: str, reason: str | None) -> Any:
+        """M6: a task with a running workflow is controlled through it (applied at the next
+        safe point); others change state directly as before."""
+        svc = svc_of(request)
+        o = svc.orchestrator
+        if o is None or not o.ready or not o.has_workflow(task_id):
+            return None
+        try:
+            if action == "pause":
+                o.pause(task_id)
+            elif action == "resume":
+                o.resume(task_id)
+            else:
+                o.cancel(task_id, reason or "Cancelled by you")
+        except OrchestratorUnavailable as exc:
+            raise HTTPException(503, str(exc)) from exc
+        task, _ = svc.tasks.get(task_id)
+        return task
+
     @app.post("/v1/tasks/{task_id}/pause", response_model=schemas.TaskOut)
     def pause(task_id: str, body: schemas.ReasonBody, request: Request) -> Any:
-        return _transition(request, task_id, TaskStatus.PAUSED, body.reason)
+        return _via_workflow(request, task_id, "pause", body.reason) or \
+            _transition(request, task_id, TaskStatus.PAUSED, body.reason)
 
     @app.post("/v1/tasks/{task_id}/resume", response_model=schemas.TaskOut)
     def resume(task_id: str, body: schemas.ReasonBody, request: Request) -> Any:
-        return _transition(request, task_id, None, body.reason)
+        return _via_workflow(request, task_id, "resume", body.reason) or \
+            _transition(request, task_id, None, body.reason)
 
     @app.post("/v1/tasks/{task_id}/cancel", response_model=schemas.TaskOut)
     def cancel(task_id: str, body: schemas.ReasonBody, request: Request) -> Any:
-        return _transition(request, task_id, TaskStatus.CANCELLED, body.reason)
+        return _via_workflow(request, task_id, "cancel", body.reason) or \
+            _transition(request, task_id, TaskStatus.CANCELLED, body.reason)
 
     # ---------------------------------------------------------------- audit
     @app.get("/v1/audit", response_model=schemas.AuditList)
@@ -387,6 +476,7 @@ def create_app(settings: Settings, audio_backend: AudioBackend | None = None, *,
     app.include_router(voice_router)
     app.include_router(ai_router)
     app.include_router(discovery_router)
+    app.include_router(orchestration_router)
 
     # ---------------------------------------------------------------- websocket
     @app.websocket("/v1/ws")

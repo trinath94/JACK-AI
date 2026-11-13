@@ -25,6 +25,7 @@ from jack_api.discovery import llm, rules
 from jack_api.discovery.catalog import BY_ID, CATEGORIES, Category, Conflict, Slot
 from jack_api.discovery.rules import Value
 from jack_api.discovery.spec import build_spec
+from jack_api.orchestrator.approvals import ApprovalService, scope_hash
 from jack_api.settings_store import SettingsStore
 from jack_api.tasks import HOLD, TaskStatus, TaskStore
 
@@ -33,6 +34,7 @@ log = logging.getLogger(__name__)
 SETTINGS_KEY = "discovery.settings"
 ACTIVE = ("choosing_category", "asking", "resolving_conflict", "awaiting_approval", "changing")
 IDLE_LIMIT = timedelta(minutes=30)
+SPEC_APPROVAL_TTL = timedelta(days=7)
 ACTOR = "jack"
 MAX_ATTEMPTS = 2
 S = TaskStatus
@@ -78,7 +80,9 @@ class DiscoveryEngine:
     def __init__(self, db: Database, tasks: TaskStore, audit: AuditLog, store: SettingsStore,
                  publish: Publisher, publish_task: TaskPublisher,
                  complete: llm.Completer | None = None,
-                 provider_ready: Callable[[], bool] | None = None) -> None:
+                 provider_ready: Callable[[], bool] | None = None,
+                 approvals: ApprovalService | None = None,
+                 on_ready: Callable[[str], str | None] | None = None) -> None:
         self._db = db
         self._tasks = tasks
         self._audit = audit
@@ -88,6 +92,13 @@ class DiscoveryEngine:
         self._complete = complete
         self._provider_ready = provider_ready or (lambda: complete is not None)
         self._settings = store.get(SETTINGS_KEY, DiscoverySettings)
+        # M6: spec approval is a bound approval record; a ready task is handed to the
+        # orchestrator, whose reply says what happens next.
+        self._approvals = approvals
+        self._on_ready = on_ready
+        self._deciding = False
+        if approvals is not None:
+            approvals.on_decided(self._approval_decided)
         self._lock = threading.RLock()
 
     # ------------------------------------------------------------------ settings
@@ -386,32 +397,83 @@ class DiscoveryEngine:
                     f"components{extra}. The full specification is in the Command Centre. "
                     "Shall I go ahead with it?")
             self._move(row.task_id, S.WAITING_FOR_APPROVAL, "Specification ready for approval")
+            if self._approvals is not None:
+                a = self._approvals.request(
+                    task_id=row.task_id, action="task.execute", target=f"task:{row.task_id}",
+                    scope={"spec_sha256": scope_hash(spec), "title": spec["title"]},
+                    summary=f"Start work on “{spec['title']}” ({spec['scope']['scale']} job, "
+                            f"{n} components)", expires_in=SPEC_APPROVAL_TTL)
+                st["approval_id"] = a.id
             return self._say(row, text, source, expects=True, wait=False,
                              options=["Approve", "Change something"])
         row.status = "ready"
         row.approved_at = utcnow()
         self._move(row.task_id, S.PLANNING, "Requirements complete (small job, no approval "
                    "needed)")
-        text = (f"{prefix}Thanks, that's everything I need. I've written the specification for "
-                f"the {spec['title'][0].lower()}{spec['title'][1:]}. Planning and carrying out "
-                "the work arrive in a later version of JACK, so I'll stop there for now.")
+        text = (f"{prefix}Thanks, that's everything I need for the "
+                f"{spec['title'][0].lower()}{spec['title'][1:]}. " + self._ready(row.task_id))
         return self._say(row, text, source, expects=False, wait=False)
 
-    def _approve(self, row: RequirementSession, source: str) -> Reply:
+    def _approve(self, row: RequirementSession, source: str, *, decided: bool = False) -> Reply:
+        aid = row.state.get("approval_id")
+        if self._approvals is not None and aid and not decided:
+            current = self._approvals.get(aid)
+            if current.status == "expired":
+                row.state["pending"] = None
+                return self._finalise(row, source, "That approval had expired, so here it is "
+                                      "again. ")
+            if current.status == "pending":
+                self._deciding = True
+                try:
+                    self._approvals.decide(aid, "approve", current.nonce,
+                                           via="voice" if source == "voice" else "ui")
+                finally:
+                    self._deciding = False
         row.status = "ready"
         row.approved_at = utcnow()
         row.state["pending"] = None
         self._move(row.task_id, S.PLANNING, "Specification approved")
         self._audit.record("requirements.approve", outcome="allowed", actor_type="user",
                            target=f"task:{row.task_id}", details={"via": source})
-        return self._say(row, "Approved. I've saved the specification. Planning and building "
-                         "arrive in a later version of JACK, so the task will wait in planning "
-                         "until then.", source, expects=False, wait=False)
+        return self._say(row, "Approved. " + self._ready(row.task_id), source, expects=False,
+                         wait=False)
+
+    def _ready(self, task_id: str) -> str:
+        """Hand the task to the orchestrator; returns the sentence saying what happens next."""
+        if self._on_ready is None:
+            return ("Task orchestration isn't running, so the task waits in planning and "
+                    "starts when it is.")
+        try:
+            return self._on_ready(task_id) or "I've started the work."
+        except Exception:  # noqa: BLE001 - the spec is saved either way
+            log.exception("could not start task %s", task_id)
+            return ("I couldn't start the work just now; the task waits in planning and JACK "
+                    "starts it automatically when it can.")
+
+    def _approval_decided(self, approval: Any) -> None:
+        """A spec approval decided outside the conversation (e.g. the approval queue)."""
+        if self._deciding or approval.action != "task.execute":
+            return
+        with self._lock:
+            try:
+                row = self._by_task(approval.task_id)
+            except SessionNotFound:
+                return
+            if row.status != "awaiting_approval" or row.state.get("approval_id") != approval.id:
+                return
+            self._turn(row, "user", "Approved in the approval queue" if approval.status ==
+                       "approved" else "Declined in the approval queue", None, "ui")
+            if approval.status == "approved":
+                self._approve(row, "ui", decided=True)
+            else:
+                self._cancel(row, "ui")
 
     def _cancel(self, row: RequirementSession, source: str) -> Reply:
         row.status = "cancelled"
         row.state["pending"] = None
         self._move(row.task_id, S.CANCELLED, "Cancelled during requirements")
+        if self._approvals is not None:
+            self._approvals.withdraw_for_task(row.task_id)
         self._audit.record("requirements.cancel", outcome="allowed", actor_type="user",
                            target=f"task:{row.task_id}", details={"via": source})
         return self._say(row, "Okay, I've cancelled that.", source, expects=False, wait=False)

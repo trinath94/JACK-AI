@@ -15,6 +15,7 @@ from sqlalchemy import create_engine, text
 
 # Unit tests use SQLite (or JACK_DATABASE_URL) unless a test asks for embedded PostgreSQL.
 os.environ.setdefault("JACK_DATABASE", "sqlite")
+os.environ.setdefault("JACK_TEMPORAL", "off")
 
 from jack_api.app import create_app
 from jack_api.config import Settings

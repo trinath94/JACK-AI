@@ -50,6 +50,9 @@ class Settings(BaseSettings):
     # Milestone 6 (decision D-1): embedded PostgreSQL by default; "sqlite" opts out.
     # JACK_DATABASE_URL overrides both (tests, CI, a server you run yourself).
     database: Literal["embedded", "sqlite"] = "embedded"
+    # Milestone 6: durable task orchestration on a bundled Temporal server ("off" for tests
+    # that don't need it).
+    temporal: Literal["on", "off"] = "on"
     models_dir: Path | None = None
     # Tests only: point the Anthropic provider at a local fake API. Loopback URLs only, so a
     # stored key can never be redirected to another host.

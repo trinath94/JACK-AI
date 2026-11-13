@@ -92,6 +92,7 @@ class Task(Base):
         DateTime(timezone=True), default=utcnow, index=True
     )
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    summary: Mapped[str | None] = mapped_column(Text, nullable=True)  # M6: completion summary
 
 
 class TaskEvent(Base):
@@ -197,6 +198,82 @@ class RequirementTurn(Base):
     slot: Mapped[str | None] = mapped_column(String(64), nullable=True)
     source: Mapped[str | None] = mapped_column(String(16), nullable=True)  # voice | typed | ui
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class TaskStep(Base):
+    """One step of a task's plan (Milestone 6). Authoritative; workflows only hold ids."""
+
+    __tablename__ = "task_steps"
+    __table_args__ = (UniqueConstraint("task_id", "key"),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    task_id: Mapped[str] = mapped_column(ForeignKey("tasks.id", ondelete="CASCADE"), index=True)
+    seq: Mapped[int] = mapped_column(Integer)
+    key: Mapped[str] = mapped_column(String(64))
+    title: Mapped[str] = mapped_column(String(255))
+    kind: Mapped[str] = mapped_column(String(64))           # executor id
+    agent_role: Mapped[str] = mapped_column(String(64))
+    idempotent: Mapped[bool] = mapped_column(Boolean, default=True)
+    needs_approval: Mapped[bool] = mapped_column(Boolean, default=False)
+    instructions: Mapped[str] = mapped_column(Text, default="")
+    # pending | running | done | blocked | waiting_approval | needs_review | skipped | failed
+    status: Mapped[str] = mapped_column(String(32), index=True)
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    blocked_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    output: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    approval_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class Approval(Base):
+    """A request for the user's decision, bound to one action, target, scope and expiry."""
+
+    __tablename__ = "approvals"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    task_id: Mapped[str] = mapped_column(ForeignKey("tasks.id", ondelete="CASCADE"), index=True)
+    step_id: Mapped[str | None] = mapped_column(
+        ForeignKey("task_steps.id", ondelete="SET NULL"), nullable=True)
+    action: Mapped[str] = mapped_column(String(64))
+    target: Mapped[str] = mapped_column(String(512))
+    scope: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    summary: Mapped[str] = mapped_column(Text)
+    risk: Mapped[str] = mapped_column(String(16), default="medium")
+    # pending | approved | denied | expired | withdrawn
+    status: Mapped[str] = mapped_column(String(16), index=True)
+    nonce: Mapped[str] = mapped_column(String(64))
+    requested_by: Mapped[str] = mapped_column(String(64))
+    requested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    decided_by: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    decided_via: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class TaskArtifact(Base):
+    __tablename__ = "task_artifacts"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    task_id: Mapped[str] = mapped_column(ForeignKey("tasks.id", ondelete="CASCADE"), index=True)
+    step_id: Mapped[str | None] = mapped_column(
+        ForeignKey("task_steps.id", ondelete="SET NULL"), nullable=True)
+    name: Mapped[str] = mapped_column(String(255))
+    path: Mapped[str] = mapped_column(Text)
+    kind: Mapped[str] = mapped_column(String(32))   # document | summary
+    size_bytes: Mapped[int] = mapped_column(Integer)
+    sha256: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class WorkflowRun(Base):
+    __tablename__ = "workflow_runs"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    task_id: Mapped[str] = mapped_column(ForeignKey("tasks.id", ondelete="CASCADE"), index=True)
+    workflow_id: Mapped[str] = mapped_column(String(128))
+    run_id: Mapped[str] = mapped_column(String(64))
+    status: Mapped[str] = mapped_column(String(16))   # running | completed | failed | cancelled
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class Database:
