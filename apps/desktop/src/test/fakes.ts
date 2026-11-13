@@ -8,6 +8,77 @@ import type {
   VoiceStatus,
 } from "@jack/shared-types";
 import type { DesktopBridge } from "../lib/backend";
+import type { DiscoverySession, DiscoveryStatus, ProjectSpec } from "@jack/shared-types";
+
+const PURPOSE = [
+  { value: "company", label: "My company or business" },
+  { value: "shop", label: "Selling products online" },
+];
+const SITE = [
+  { value: "corporate", label: "Corporate website" },
+  { value: "portal", label: "Customer portal" },
+];
+
+export function discoverySpec(): ProjectSpec {
+  return {
+    version: 1, title: "Corporate website", category: "website", category_name: "Website",
+    summary: "Website. Purpose: My company or business; Kind of site: Corporate website.",
+    requirements: [
+      { slot: "purpose", label: "Purpose", section: "overview", value: "company", display: "My company or business", source: "user" },
+      { slot: "site_type", label: "Kind of site", section: "overview", value: "corporate", display: "Corporate website", source: "user" },
+    ],
+    assumptions: [{ slot: "style", label: "Visual style", section: "design", value: "modern", display: "Modern and minimal", source: "default" }],
+    open_questions: [],
+    scope: { scale: "medium", components: ["Responsive front end", "Page content", "SEO basics", "Form handling"], rationale: "4 components" },
+    integrations: [{ name: "E-mail service", reason: "Features: Contact form" }],
+    hosting: { required: true, choice: "own_server", display: "On your own Ubuntu server", source: "default" },
+    dependencies: [{ capability: "Autonomous development with Claude Code", milestone: 11, available: false }],
+    engines: ["local"], notes: [], approval_required: true,
+  };
+}
+
+/** A scripted two-question conversation, enough to drive the Command Centre UI. */
+function fakeDiscovery() {
+  const sessions: DiscoverySession[] = [];
+  let step = 0;
+  const reply = (s: DiscoverySession, text: string, expects: boolean, options: string[] = []) => {
+    s.turns!.push({ role: "jack", text, slot: null, source: null, at: "2026-11-13T10:00:00Z" });
+    return { reply: { session_id: s.id, task_id: s.task_id, text, status: s.status, expects_answer: expects, options, slot: null, listen: false }, session: s };
+  };
+  const ask = (s: DiscoverySession, status: DiscoveryStatus) => (s.status = status);
+  return {
+    sessions,
+    settings: { engine: "auto" as "auto" | "local", approval: "auto" as "auto" | "always", followup_listen: true },
+    message(text: string, sessionId?: string | null) {
+      let s = sessions.find((x) => x.id === sessionId);
+      if (!s) {
+        step = 0;
+        s = {
+          id: `sess-${sessions.length + 1}`, task_id: "task-1", status: "asking", category: "website", category_name: "Website",
+          category_source: "local", command: text, answers: [], spec: null, notes: [], blocked_reason: null,
+          created_at: "2026-11-13T10:00:00Z", updated_at: "2026-11-13T10:00:00Z", approved_at: null, turns: [],
+          question: { kind: "slot", slot: "purpose", label: "Purpose", text: "What is the website for?", input: "choice", options: PURPOSE, default: "company" },
+        };
+        sessions.unshift(s);
+        s.turns!.push({ role: "user", text, slot: null, source: "typed", at: "2026-11-13T10:00:00Z" });
+        return reply(s, "Certainly. I'll handle the development of the website. What is the website for?", true, PURPOSE.map((o) => o.label));
+      }
+      s.turns!.push({ role: "user", text, slot: null, source: "ui", at: "2026-11-13T10:00:01Z" });
+      step += 1;
+      if (step === 1) {
+        s.answers.push({ slot: "purpose", label: "Purpose", input: "choice", value: "company", source: "user", display: "My company or business", options: PURPOSE });
+        s.question = { kind: "slot", slot: "site_type", label: "Kind of site", text: "Would you like a corporate website, a customer portal or a full business platform?", input: "choice", options: SITE, default: "corporate" };
+        return reply(s, "Would you like a corporate website, a customer portal or a full business platform?", true, SITE.map((o) => o.label));
+      }
+      s.answers.push({ slot: "site_type", label: "Kind of site", input: "choice", value: "corporate", source: "user", display: "Corporate website", options: SITE });
+      s.answers.push({ slot: "style", label: "Visual style", input: "choice", value: "modern", source: "default", display: "Modern and minimal", options: [{ value: "modern", label: "Modern and minimal" }, { value: "bold", label: "Bold and colourful" }] });
+      s.spec = discoverySpec();
+      s.question = { kind: "approval", options: [{ value: "Approve", label: "Approve" }, { value: "Change something", label: "Change something" }] };
+      ask(s, "awaiting_approval");
+      return reply(s, "I have what I need for the corporate website. Shall I go ahead with it?", true, ["Approve", "Change something"]);
+    },
+  };
+}
 
 export const CONN: BackendConnection = {
   baseUrl: "http://127.0.0.1:5555",
@@ -183,6 +254,7 @@ export function mockService(init: { voice?: VoiceStatus; notifications?: Notific
     voice: structuredClone(init.voice ?? VOICE),
     notifications: structuredClone(init.notifications ?? []) as Notification[],
     pttError: null as null | { code: string; message: string },
+    discovery: fakeDiscovery(),
     calls: [] as Array<{ method: string; path: string; body: unknown }>,
   };
   const json = (status: number, body: unknown) =>
@@ -193,6 +265,35 @@ export function mockService(init: { voice?: VoiceStatus; notifications?: Notific
     const body = init?.body ? JSON.parse(String(init.body)) : undefined;
     state.calls.push({ method, path, body });
     if (path === "/v1/tasks" && method === "POST") return json(201, TASK);
+    const d = state.discovery;
+    if (path === "/v1/discovery/status") return json(200, { settings: d.settings, using: "local", detail: "Using JACK's local rules." });
+    if (path === "/v1/discovery/settings" && method === "PATCH") {
+      Object.assign(d.settings, body);
+      return json(200, d.settings);
+    }
+    if (path === "/v1/discovery/messages") return json(200, d.message(body.text, body.session_id));
+    if (path.startsWith("/v1/discovery/sessions?")) return json(200, d.sessions);
+    const sm = path.match(/^\/v1\/discovery\/sessions\/([^/]+)(\/.*)?$/);
+    if (sm) {
+      const s = d.sessions.find((x) => x.id === sm[1]);
+      if (!s) return json(404, { error: { code: "not_found", message: "Requirements conversation not found" } });
+      const rest = sm[2] ?? "";
+      if (rest === "/approve") {
+        s.status = "ready";
+        s.approved_at = "2026-11-13T10:05:00Z";
+        s.question = null;
+        return json(200, { reply: { session_id: s.id, task_id: s.task_id, text: "Approved.", status: s.status, expects_answer: false, options: [], slot: null, listen: false }, session: s });
+      }
+      if (rest.startsWith("/answers/")) {
+        const slot = decodeURIComponent(rest.slice("/answers/".length));
+        const a = s.answers.find((x) => x.slot === slot)!;
+        a.value = body.value;
+        a.source = "user";
+        a.display = a.options.find((o) => o.value === body.value)?.label ?? String(body.value);
+        return json(200, { reply: { session_id: s.id, task_id: s.task_id, text: "Updated.", status: s.status, expects_answer: true, options: [], slot: null, listen: false }, session: s });
+      }
+      return json(200, s);
+    }
     if (path.startsWith("/v1/tasks?")) return json(200, { items: [], total: 0 });
     if (path.startsWith("/v1/tasks/")) return json(200, { ...TASK, events: [] });
     if (path === "/v1/voice/status") return json(200, state.voice);

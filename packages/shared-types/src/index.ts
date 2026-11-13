@@ -66,7 +66,10 @@ export type WsEvent =
   | { type: "event"; topic: "voice.error"; ts: string; data: { code: string; message: string } }
   | { type: "event"; topic: "notification.created"; ts: string; data: Notification }
   | { type: "event"; topic: "notification.read"; ts: string; data: { ids: string[] } }
-  | { type: "event"; topic: "system.metrics"; ts: string; data: SystemMetrics };
+  | { type: "event"; topic: "system.metrics"; ts: string; data: SystemMetrics }
+  | { type: "event"; topic: "voice.followup"; ts: string; data: { wait_s: number } }
+  | { type: "event"; topic: "discovery.updated"; ts: string; data: { session_id: string; task_id: string; status: DiscoveryStatus } }
+  | { type: "event"; topic: "discovery.settings"; ts: string; data: DiscoverySettings };
 
 /** Rust supervisor types (apps/desktop/src-tauri/src/supervisor.rs). */
 export type BackendState = "starting" | "running" | "restarting" | "failed" | "stopped";
@@ -197,3 +200,110 @@ export interface AISettingsPatch {
   fallback?: Partial<AIStatus["fallback"]>;
   limits?: Partial<{ monthly_usd: string | null; per_task_usd: string | null; per_project_usd: string | null; alert_pct: number[] }>;
 }
+
+// ------------------------------------------------------------------ requirement discovery (M5)
+export type DiscoveryStatus =
+  | "choosing_category" | "asking" | "resolving_conflict" | "awaiting_approval" | "changing"
+  | "ready" | "cancelled" | "blocked";
+export type AnswerSource = "user" | "inferred" | "default";
+export type SlotInput = "choice" | "multi" | "text" | "bool";
+export type SlotValue = string | string[] | boolean | null;
+
+export interface DiscoverySettings {
+  engine: "auto" | "local";
+  approval: "auto" | "always";
+  followup_listen: boolean;
+}
+
+export interface DiscoveryEngineStatus {
+  settings: DiscoverySettings;
+  using: "claude" | "local";
+  detail: string | null;
+}
+
+export interface SlotOption { value: string; label: string }
+
+export interface DiscoveryAnswer {
+  slot: string;
+  label: string;
+  input: SlotInput;
+  value: SlotValue;
+  source: AnswerSource;
+  display: string;
+  options: SlotOption[];
+}
+
+export interface SpecItem {
+  slot: string;
+  label: string;
+  section: string;
+  value: SlotValue;
+  display: string;
+  source: AnswerSource;
+}
+
+export interface ProjectSpec {
+  version: number;
+  title: string;
+  category: string;
+  category_name: string;
+  summary: string;
+  requirements: SpecItem[];
+  assumptions: SpecItem[];
+  open_questions: string[];
+  scope: { scale: "small" | "medium" | "large"; components: string[]; rationale: string };
+  integrations: { name: string; reason: string }[];
+  hosting: { required: boolean; choice: string | null; display: string; source?: string | null };
+  dependencies: { capability: string; milestone: number; available: boolean }[];
+  engines: string[];
+  notes: string[];
+  approval_required: boolean;
+}
+
+export interface DiscoveryTurn {
+  role: "user" | "jack";
+  text: string;
+  slot: string | null;
+  source: string | null;
+  at: string;
+}
+
+export interface DiscoverySession {
+  id: string;
+  task_id: string;
+  status: DiscoveryStatus;
+  category: string | null;
+  category_name: string | null;
+  category_source: "claude" | "local" | "user" | null;
+  command: string;
+  question:
+    | { kind: "slot"; slot: string; label: string; text: string; input: SlotInput; options: SlotOption[]; default: SlotValue }
+    | { kind: "category" | "conflict" | "claude_conflict" | "approval" | "change"; options: SlotOption[] }
+    | null;
+  answers: DiscoveryAnswer[];
+  spec: ProjectSpec | null;
+  notes: string[];
+  blocked_reason: string | null;
+  created_at: string;
+  updated_at: string;
+  approved_at: string | null;
+  turns?: DiscoveryTurn[];
+}
+
+export interface DiscoveryReply {
+  session_id: string;
+  task_id: string;
+  text: string;
+  status: DiscoveryStatus;
+  expects_answer: boolean;
+  options: string[];
+  slot: string | null;
+  listen: boolean;
+}
+
+export interface DiscoveryResult {
+  reply: DiscoveryReply;
+  session: DiscoverySession;
+}
+
+export interface DiscoveryCategory { id: string; name: string; description: string; questions: number }

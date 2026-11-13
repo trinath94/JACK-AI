@@ -64,7 +64,7 @@ describe("App", () => {
     expect(screen.getByText("Speech recognition: small.en")).toBeInTheDocument();
   });
 
-  it("creates a task from a typed command and shows it from the live feed", async () => {
+  it("sends a typed command to requirement discovery and shows the task from the live feed", async () => {
     renderApp();
     const ws = await connect();
     const input = await screen.findByLabelText("Command");
@@ -72,8 +72,17 @@ describe("App", () => {
     fireEvent.change(input, { target: { value: "Build a corporate website" } });
     fireEvent.click(screen.getByRole("button", { name: /send/i }));
     await waitFor(() =>
-      expect(fetch).toHaveBeenCalledWith(`${CONN.baseUrl}/v1/tasks`, expect.objectContaining({ method: "POST" })),
+      expect(fetch).toHaveBeenCalledWith(`${CONN.baseUrl}/v1/discovery/messages`, expect.objectContaining({ method: "POST" })),
     );
+    const exchange = await screen.findByTestId("discovery-exchange");
+    expect(exchange).toHaveTextContent("What is the website for?");
+    // The next message answers the same conversation, and option chips answer in one click.
+    expect(screen.getByLabelText("Command")).toHaveAttribute("placeholder", "Answer JACK…");
+    fireEvent.click(within(exchange).getByRole("button", { name: "My company or business" }));
+    expect(await screen.findByText(/Would you like a corporate website/)).toBeInTheDocument();
+    const posted = service.state.calls.filter((c) => c.path === "/v1/discovery/messages").map((c) => c.body as { session_id: string | null });
+    expect(posted[0]!.session_id).toBeNull();
+    expect(posted[1]!.session_id).toBe("sess-1");
     act(() => ws.emit("task.created", TASK));
     const list = await screen.findByRole("list", { name: "Recent tasks" });
     expect(within(list).getByText("Build a corporate website")).toBeInTheDocument();
@@ -391,5 +400,78 @@ describe("Usage and Billing (M4)", () => {
     const list = await screen.findByRole("list", { name: "Integrations" });
     expect(await within(list).findByText("not configured")).toBeInTheDocument();
     expect(within(list).getByTestId("home-api-spend")).toHaveTextContent("$0.00");
+  });
+});
+
+describe("Command Centre (M5)", () => {
+  beforeEach(() => {
+    FakeWebSocket.instances = [];
+    localStorage.clear();
+    service = mockService();
+    vi.stubGlobal("fetch", vi.fn(service.fetchImpl));
+  });
+
+  async function openCommandCentre() {
+    renderApp();
+    const ws = await connect();
+    fireEvent.keyDown(window, { key: "6", ctrlKey: true });
+    return ws;
+  }
+
+  it("runs a requirements conversation and approves the specification", async () => {
+    await openCommandCentre();
+    const input = await screen.findByLabelText("New request");
+    fireEvent.change(input, { target: { value: "Build a professional website" } });
+    fireEvent.click(screen.getByRole("button", { name: /send/i }));
+    const convo = await screen.findByRole("list", { name: "Conversation" });
+    expect(within(convo).getByText(/What is the website for\?/)).toBeInTheDocument();
+    const chips = screen.getByLabelText("Suggested answers");
+    fireEvent.click(within(chips).getByRole("button", { name: "My company or business" }));
+    expect(await screen.findByText(/Would you like a corporate website/)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Your answer"), { target: { value: "A corporate website" } });
+    fireEvent.click(screen.getByRole("button", { name: /send/i }));
+    expect(await screen.findByTestId("spec-title")).toHaveTextContent("Corporate website");
+    expect(screen.getByText("needs approval")).toBeInTheDocument();
+    // Answers show where they came from; assumptions are marked as such.
+    expect(screen.getAllByText("you said").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("assumed").length).toBeGreaterThan(0);
+    expect(screen.getByText("Milestone 11")).toBeInTheDocument(); // honest: not built yet
+    fireEvent.click(screen.getByRole("button", { name: /Approve specification/ }));
+    expect(await screen.findByText(/Specification complete/)).toBeInTheDocument();
+    expect(service.state.calls.some((c) => c.path === "/v1/discovery/sessions/sess-1/approve")).toBe(true);
+  });
+
+  it("edits an assumption from the specification", async () => {
+    service.state.discovery.message("Build a website");
+    service.state.discovery.message("My company", "sess-1");
+    service.state.discovery.message("Corporate", "sess-1");
+    await openCommandCentre();
+    await screen.findByTestId("spec-title");
+    fireEvent.click(screen.getAllByRole("button", { name: "Change Visual style" })[0]!);
+    fireEvent.change(screen.getByRole("combobox", { name: "Visual style" }), { target: { value: "bold" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => {
+      const put = service.state.calls.find((c) => c.method === "PUT" && c.path === "/v1/discovery/sessions/sess-1/answers/style");
+      expect(put?.body).toEqual({ value: "bold" });
+    });
+    expect((await screen.findAllByText("Bold and colourful")).length).toBeGreaterThan(0);
+  });
+
+  it("changes how JACK asks", async () => {
+    await openCommandCentre();
+    const engine = await screen.findByRole("combobox", { name: "Understanding engine" });
+    fireEvent.change(engine, { target: { value: "local" } });
+    await waitFor(() => expect(service.state.discovery.settings.engine).toBe("local"));
+    fireEvent.click(screen.getByRole("switch", { name: /Listen for my answer/ }));
+    await waitFor(() => expect(service.state.discovery.settings.followup_listen).toBe(false));
+  });
+
+  it("shows when JACK is listening for the answer", async () => {
+    service.state.discovery.message("Build a website");
+    const ws = await openCommandCentre();
+    await screen.findByRole("list", { name: "Conversation" });
+    act(() => ws.emit("voice.state", { state: "listening" }));
+    act(() => ws.emit("voice.followup", { wait_s: 8 }));
+    expect(await screen.findByText(/Listening for your answer/)).toBeInTheDocument();
   });
 });

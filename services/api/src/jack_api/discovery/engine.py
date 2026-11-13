@@ -658,6 +658,7 @@ class DiscoveryEngine:
         if wait:
             self._move(row.task_id, S.WAITING_FOR_INFORMATION, f"Asked: {text[:200]}")
         self._turn(row, "jack", text, slot, None)
+        row.state["last_options"] = options or []
         row.updated_at = utcnow()
         with self._db.session() as s:
             db_row = s.get(RequirementSession, row.id)
@@ -728,7 +729,8 @@ class DiscoveryEngine:
                                         for o in slot.options],
                             "default": _jsonable(slot.default)}
         elif pending.get("kind"):
-            question = {"kind": pending["kind"]}
+            question = {"kind": pending["kind"],
+                        "options": [{"value": o, "label": o} for o in st.get("last_options", [])]}
         answers = []
         if cat:
             for slot in cat.slots:

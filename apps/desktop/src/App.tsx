@@ -7,6 +7,7 @@ import { Pill, healthTone } from "./components/ui";
 import { loadAppearance, resolveDark, saveAppearance, type Appearance } from "./lib/appearance";
 import { useBackend } from "./lib/backend";
 import { NAV, type PageId } from "./lib/nav";
+import { CommandPage } from "./pages/CommandPage";
 import { HomePage } from "./pages/HomePage";
 import { PlannedPage } from "./pages/PlannedPage";
 import { SecurityPage } from "./pages/SecurityPage";
@@ -94,7 +95,8 @@ export function App() {
   const item = NAV.find((n) => n.id === page) ?? NAV[0]!;
   let content;
   switch (page) {
-    case "home": content = <HomePage commandRef={commandRef} shortcut={ptt} />; break;
+    case "home": content = <HomePage commandRef={commandRef} shortcut={ptt} onOpenCommand={() => setPage("command")} />; break;
+    case "command": content = <CommandPage />; break;
     case "voice": content = <VoicePage shortcut={ptt} />; break;
     case "tasks": content = <TasksPage />; break;
     case "usage": content = <UsagePage />; break;

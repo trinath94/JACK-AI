@@ -90,6 +90,22 @@
         "title": "AISettingsPatch",
         "type": "object"
       },
+      "AnswerBody": {
+        "additionalProperties": false,
+        "properties": {
+          "text": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "AnswerBody",
+        "type": "object"
+      },
       "AnthropicSettings": {
         "additionalProperties": false,
         "properties": {
@@ -460,6 +476,53 @@
         "title": "ComponentHealthOut",
         "type": "object"
       },
+      "DiscoverySettingsPatch": {
+        "properties": {
+          "approval": {
+            "anyOf": [
+              {
+                "enum": [
+                  "auto",
+                  "always"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approval"
+          },
+          "engine": {
+            "anyOf": [
+              {
+                "enum": [
+                  "auto",
+                  "local"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Engine"
+          },
+          "followup_listen": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Followup Listen"
+          }
+        },
+        "title": "DiscoverySettingsPatch",
+        "type": "object"
+      },
       "FallbackSettings": {
         "additionalProperties": false,
         "properties": {
@@ -587,6 +650,42 @@
           }
         },
         "title": "LimitSettings",
+        "type": "object"
+      },
+      "MessageBody": {
+        "additionalProperties": false,
+        "properties": {
+          "session_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Id"
+          },
+          "source": {
+            "default": "typed",
+            "enum": [
+              "typed",
+              "ui"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "text": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "MessageBody",
         "type": "object"
       },
       "NotificationList": {
@@ -827,6 +926,33 @@
           "turns"
         ],
         "title": "SessionOut",
+        "type": "object"
+      },
+      "SlotValueBody": {
+        "additionalProperties": false,
+        "properties": {
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "value"
+        ],
+        "title": "SlotValueBody",
         "type": "object"
       },
       "SpeakBody": {
@@ -2243,6 +2369,357 @@
         "summary": "Audit Verify"
       }
     },
+    "/v1/discovery/catalog": {
+      "get": {
+        "operationId": "catalog_v1_discovery_catalog_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "title": "Response Catalog V1 Discovery Catalog Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Catalog"
+      }
+    },
+    "/v1/discovery/messages": {
+      "post": {
+        "operationId": "message_v1_discovery_messages_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MessageBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Message V1 Discovery Messages Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Message"
+      }
+    },
+    "/v1/discovery/sessions": {
+      "get": {
+        "operationId": "sessions_v1_discovery_sessions_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "active",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Active",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "title": "Response Sessions V1 Discovery Sessions Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Sessions"
+      }
+    },
+    "/v1/discovery/sessions/{session_id}": {
+      "get": {
+        "operationId": "session_v1_discovery_sessions__session_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Session V1 Discovery Sessions  Session Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Session"
+      }
+    },
+    "/v1/discovery/sessions/{session_id}/answers/{slot}": {
+      "put": {
+        "operationId": "set_answer_v1_discovery_sessions__session_id__answers__slot__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "slot",
+            "required": true,
+            "schema": {
+              "title": "Slot",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SlotValueBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Set Answer V1 Discovery Sessions  Session Id  Answers  Slot  Put",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Answer"
+      }
+    },
+    "/v1/discovery/sessions/{session_id}/approve": {
+      "post": {
+        "operationId": "approve_v1_discovery_sessions__session_id__approve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Approve V1 Discovery Sessions  Session Id  Approve Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Approve"
+      }
+    },
+    "/v1/discovery/sessions/{session_id}/cancel": {
+      "post": {
+        "operationId": "cancel_v1_discovery_sessions__session_id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Cancel V1 Discovery Sessions  Session Id  Cancel Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel"
+      }
+    },
+    "/v1/discovery/settings": {
+      "patch": {
+        "operationId": "update_settings_v1_discovery_settings_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiscoverySettingsPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Update Settings V1 Discovery Settings Patch",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Settings"
+      }
+    },
+    "/v1/discovery/status": {
+      "get": {
+        "operationId": "status_v1_discovery_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Status V1 Discovery Status Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Status"
+      }
+    },
     "/v1/health": {
       "get": {
         "operationId": "health_v1_health_get",
@@ -2558,6 +3035,57 @@
         "summary": "Get Task"
       }
     },
+    "/v1/tasks/{task_id}/answers": {
+      "post": {
+        "operationId": "task_answer_v1_tasks__task_id__answers_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "title": "Task Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnswerBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Task Answer V1 Tasks  Task Id  Answers Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Task Answer"
+      }
+    },
     "/v1/tasks/{task_id}/cancel": {
       "post": {
         "operationId": "cancel_v1_tasks__task_id__cancel_post",
@@ -2703,6 +3231,88 @@
           }
         },
         "summary": "Resume"
+      }
+    },
+    "/v1/tasks/{task_id}/spec": {
+      "get": {
+        "operationId": "task_spec_v1_tasks__task_id__spec_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "title": "Task Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Task Spec V1 Tasks  Task Id  Spec Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Task Spec"
+      }
+    },
+    "/v1/tasks/{task_id}/spec/approve": {
+      "post": {
+        "operationId": "task_spec_approve_v1_tasks__task_id__spec_approve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "title": "Task Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Task Spec Approve V1 Tasks  Task Id  Spec Approve Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Task Spec Approve"
       }
     },
     "/v1/tasks/{task_id}/transition": {

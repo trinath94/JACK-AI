@@ -37,7 +37,7 @@ export interface NavItem {
 export const NAV: NavItem[] = [
   { id: "home", label: "Home", icon: Home, milestone: null, summary: "Service health, command entry and live task feed.", shortcut: "1" },
   { id: "voice", label: "Voice Assistant", icon: Mic, milestone: null, summary: "Microphone, push-to-talk, mute and privacy. Wake word and speech recognition arrive in Milestone 3.", shortcut: "4" },
-  { id: "command", label: "Command Centre", icon: TerminalSquare, milestone: 5, summary: "Requirement discovery: JACK asks one question at a time and builds a specification." },
+  { id: "command", label: "Command Centre", icon: TerminalSquare, milestone: null, summary: "Requirement discovery: JACK asks one question at a time and builds a specification.", shortcut: "6" },
   { id: "tasks", label: "Active Tasks", icon: Activity, milestone: null, summary: "Durable tasks with lifecycle history; pause, resume and cancel.", shortcut: "2" },
   { id: "projects", label: "Projects", icon: FolderKanban, milestone: 8, summary: "Project records, workspaces and history." },
   { id: "github", label: "GitHub", icon: GitBranch, milestone: 9, summary: "OAuth / fine-grained PAT accounts, repositories, branches and pull requests." },
