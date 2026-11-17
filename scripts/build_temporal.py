@@ -44,6 +44,11 @@ def download(module: str, version: str, expected_sum: str) -> Path:
     return Path(info["Dir"])
 
 
+def _writable(root: Path) -> None:
+    for p in [root, *root.rglob("*")]:
+        p.chmod(p.stat().st_mode | 0o200)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("output", nargs="?", default=None,
@@ -64,10 +69,10 @@ def main() -> int:
     with tempfile.TemporaryDirectory(prefix="temporal-src-") as tmp:
         work = Path(tmp) / "cli"
         shutil.copytree(src, work)
+        _writable(work)  # the Go module cache is read-only, and so is a copy of it
         shutil.rmtree(work / "cliext", ignore_errors=True)
         shutil.copytree(cliext, work / "cliext")
-        for p in work.rglob("*"):
-            p.chmod(p.stat().st_mode | 0o200)
+        _writable(work)
         env = {"CGO_ENABLED": "0", "GOARCH": a.goarch}
         if a.goos:
             env["GOOS"] = a.goos

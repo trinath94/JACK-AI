@@ -1,0 +1,28 @@
+PASS  supervisor started bundled sidecar (pid 13699)
+PASS  service started and migrated the database
+PASS  main window shown
+PASS  typed command persisted as task (WAITING_FOR_INFORMATION)
+PASS  typed command started requirement discovery; JACK asked: "What's the business called? If you're not sure, say “you decide”."
+PASS  one question at a time: 5 replies, specification waiting for approval
+PASS  specification approved (bound approval decided via the UI); task "Corporate website for Acme Holdings" (hosting: own_server)
+PASS  the task started and waits for Claude: "Waiting at “Solution architecture”: Needs Claude: set up the Anthropic API o…"
+PASS  no question was asked twice
+PASS  API key saved from the UI (audited as credential.set)
+PASS  Test connection reached the (fake) Anthropic API and was recorded
+PASS  usage recorded with an estimated cost ($0.000148)
+PASS  API received the stored key as a Bearer token, with refusal fallback on
+PASS  API key appears nowhere in the database or logs
+INFO  database in use: PostgreSQL
+PASS  after the key was saved the task continued: architecture.md written (53 bytes), then it stopped honestly: "Waiting at “Create the project structure”: Needs autonomous development with Claude Code, …"
+PASS  task survived a service SIGKILL mid-step: resumed, step repeated (attempt 3, safe to repeat), answer.md written
+PASS  restart recorded the recovery (task.recover in the audit log)
+PASS  power loss simulated: app, service, PostgreSQL and Temporal all killed
+PASS  task survived a power loss: JACK restarted, recovered it and finished (PostgreSQL, Temporal history intact)
+PASS  service restarted after SIGKILL (old 14952, new 15379)
+PASS  audit records 3 service starts
+PASS  old service tree exited (no orphan after crash)
+PASS  app still running after window close (tray)
+PASS  no service, PostgreSQL or Temporal processes after SIGTERM quit
+PASS  audit chain links intact (linked 79 events)
+PASS  service (and its PostgreSQL and Temporal) shut down after the app was SIGKILLed
+26/26 passed (run as a normal user: embedded PostgreSQL 16; voice off)
