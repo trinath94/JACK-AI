@@ -22,7 +22,7 @@ import sys
 import time
 from pathlib import Path
 
-from jack_api.embedded_pg import _alive, _cmdline, _pdeathsig, free_port
+from jack_api.embedded_pg import _alive, _cmdline, _pdeathsig
 
 log = logging.getLogger(__name__)
 
@@ -64,13 +64,21 @@ class TemporalServer:
         return f"127.0.0.1:{self.port}"
 
     def start(self) -> str:
+        try:
+            return self._start_once()
+        except TemporalUnavailable as first:
+            # One retry with fresh ports: an early exit is usually a port taken in between.
+            log.warning("Temporal didn't start (%s); trying once more", first)
+            self.stop()
+            return self._start_once()
+
+    def _start_once(self) -> str:
         if self.binary is None:
             raise TemporalUnavailable("the Temporal server is not bundled with this build")
         self.dir.mkdir(parents=True, exist_ok=True)
         self.logs_dir.mkdir(parents=True, exist_ok=True)
         self._stop_stale()
-        self.port = free_port()
-        http_port, metrics_port = free_port(), free_port()
+        self.port, http_port, metrics_port = _distinct_ports(3)
         args = [str(self.binary), "server", "start-dev", "--headless",
                 "--ip", "127.0.0.1", "--port", str(self.port),
                 "--http-port", str(http_port), "--metrics-port", str(metrics_port),
@@ -120,8 +128,8 @@ class TemporalServer:
         deadline = time.monotonic() + READY_TIMEOUT_S
         while time.monotonic() < deadline:
             if self._proc.poll() is not None:
-                raise TemporalUnavailable("the Temporal server exited during start-up; see "
-                                          "temporal.log")
+                raise TemporalUnavailable("the Temporal server exited during start-up: "
+                                          + _log_tail(self.logs_dir / "temporal.log"))
             try:
                 with socket.create_connection(("127.0.0.1", self.port), timeout=1):
                     return
@@ -148,3 +156,25 @@ class TemporalServer:
         deadline = time.monotonic() + 20
         while _alive(pid) and time.monotonic() < deadline:
             time.sleep(0.2)
+
+
+def _distinct_ports(n: int) -> list[int]:
+    """Pick n free loopback ports at once (holding them, so they can't repeat)."""
+    socks = []
+    try:
+        for _ in range(n):
+            sk = socket.socket()
+            sk.bind(("127.0.0.1", 0))
+            socks.append(sk)
+        return [int(sk.getsockname()[1]) for sk in socks]
+    finally:
+        for sk in socks:
+            sk.close()
+
+
+def _log_tail(path: Path) -> str:
+    try:
+        lines = path.read_text(errors="replace").strip().splitlines()[-3:]
+    except OSError:
+        return "see temporal.log"
+    return " | ".join(x[:200] for x in lines) or "see temporal.log"

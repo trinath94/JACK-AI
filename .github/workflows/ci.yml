@@ -46,7 +46,7 @@ jobs:
           key: temporal-cli-v1.9.1-${{ runner.os }}-${{ hashFiles('scripts/build_temporal.py') }}
       - name: Build Temporal server (pinned release, from checksum-verified source)
         if: steps.temporal-cache.outputs.cache-hit != 'true'
-        run: uv run --locked --project services/api python ../../scripts/build_temporal.py ../../.temporal-bin/temporal${{ runner.os == 'Windows' && '.exe' || '' }}
+        run: uv run --locked python ../../scripts/build_temporal.py ../../.temporal-bin/temporal${{ runner.os == 'Windows' && '.exe' || '' }}
       - run: uv run ruff check src tests
       - run: uv run mypy src
       - name: Tests (SQLite; embedded PostgreSQL and Temporal tests included)
