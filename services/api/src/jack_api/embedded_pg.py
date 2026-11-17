@@ -63,8 +63,42 @@ def find_binaries(override: str | None = None) -> Path | None:
         candidates.append(Path(list(spec.submodule_search_locations)[0]) / "pginstall")
     for c in candidates:
         if (c / "bin" / f"postgres{EXE}").exists():
+            if bundle and not WIN:
+                _ensure_executable(c / "bin")
             return c
     return None
+
+
+def _ensure_executable(bin_dir: Path) -> None:
+    """Bundled data files may lose their execute bit when the frozen service unpacks them."""
+    for f in bin_dir.iterdir():
+        mode = f.stat().st_mode
+        if f.is_file() and not mode & 0o100:
+            f.chmod(mode | 0o755)
+
+
+def grant_current_user(path: Path) -> None:
+    """Windows: give the current user's own SID full control of ``path`` (inherited).
+
+    ``initdb``/``pg_ctl`` drop administrator rights before running PostgreSQL. When JACK runs
+    elevated, files it creates can be owned by — and only accessible through — the
+    Administrators group, which the restricted process can't use. An explicit ACE for the
+    user's SID keeps the folder usable by both.
+    """
+    if not WIN:
+        return
+    sys32 = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32"
+    try:
+        out = subprocess.run([str(sys32 / "whoami.exe"), "/user", "/fo", "csv", "/nh"],
+                             capture_output=True,
+                             text=True, timeout=15).stdout.strip()
+        sid = out.split(",")[-1].strip().strip('"')
+        if sid.startswith("S-1-"):
+            subprocess.run([str(sys32 / "icacls.exe"), str(path), "/grant",
+                            f"*{sid}:(OI)(CI)F", "/q"],
+                           capture_output=True, timeout=30)
+    except (OSError, subprocess.SubprocessError, IndexError):
+        log.warning("could not adjust permissions on %s", path)
 
 
 def free_port() -> int:
@@ -154,6 +188,8 @@ class EmbeddedPostgres:
         self.check()
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.logs_dir.mkdir(parents=True, exist_ok=True)
+        grant_current_user(self.data_dir)
+        grant_current_user(self.logs_dir)
         if not (self.cluster / "PG_VERSION").exists():
             self._initdb()
         pw = self._get_password()

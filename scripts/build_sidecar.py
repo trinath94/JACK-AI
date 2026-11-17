@@ -35,6 +35,13 @@ def main() -> int:
     work = API / "build" / "pyinstaller"
     migrations = API / "src" / "jack_api" / "migrations"
     sep = os.pathsep
+    # Embedded PostgreSQL 16 (decision D-1): the server files only, not the PostgreSQL 18 copy
+    # the wheel also carries.
+    import importlib.util
+
+    spec = importlib.util.find_spec("pixeltable_pgserver")
+    assert spec and spec.submodule_search_locations, "pixeltable-pgserver is not installed"
+    pginstall = Path(list(spec.submodule_search_locations)[0]) / "pginstall"
     cmd = [
         sys.executable, "-m", "PyInstaller",
         "--noconfirm", "--clean", "--onefile",
@@ -45,6 +52,13 @@ def main() -> int:
         "--paths", str(API / "src"),
         # Alembic loads env.py and revision files from disk by path.
         "--add-data", f"{migrations}{sep}jack_api/migrations",
+        "--add-data", f"{pginstall}{sep}pixeltable_pgserver/pginstall",
+        # Durable workflows (M6): Temporal's native bridge and psycopg's libpq.
+        "--collect-submodules", "temporalio",
+        "--collect-binaries", "temporalio",
+        "--collect-submodules", "psycopg",
+        "--collect-all", "psycopg_binary",
+        "--hidden-import", "jack_api.orchestrator.workflows",
         "--collect-submodules", "uvicorn",
         # Speech stack (M3): native libraries and model assets are not found by import
         # analysis alone.

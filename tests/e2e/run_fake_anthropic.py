@@ -8,6 +8,7 @@ until terminated.
 from __future__ import annotations
 
 import json
+import os
 import signal
 import sys
 import time
@@ -29,6 +30,8 @@ def main() -> int:
 
     signal.signal(signal.SIGTERM, handle)
     with FakeAnthropic() as fake:
+        fake.step_delay = float(os.environ.get("FAKE_STEP_DELAY", "0"))
+        fake.reply = "# Result\n\nA document written by the e2e fake Claude.\n"
         out.write_text(fake.base_url)
         seen = 0
         while not stop:

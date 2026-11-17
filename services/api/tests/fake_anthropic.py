@@ -4,6 +4,7 @@ runs its normal request/response path (auth header, JSON parsing, typed errors).
 from __future__ import annotations
 
 import asyncio
+import json
 import socket
 import threading
 import time
@@ -32,6 +33,7 @@ class FakeAnthropic:
         self.replies: list[str] = []  # queued replies (e.g. JSON), used before ``reply``
         self.delay = 0.0  # seconds before answering /v1/messages (slow-step tests)
         self.ok_budget: int | None = None  # answer this many more requests, then fail (500)
+        self.step_delay = 0.0  # extra delay only for task-step prompts (e2e crash tests)
         self.usage = {"input_tokens": 12, "output_tokens": 5,
                       "cache_read_input_tokens": 0, "cache_creation_input_tokens": 0}
         self.requests: list[dict[str, Any]] = []
@@ -69,6 +71,8 @@ class FakeAnthropic:
             body = await request.json()
             if self.delay:
                 await asyncio.sleep(self.delay)
+            if self.step_delay and "Your task —" in json.dumps(body.get("messages", [])):
+                await asyncio.sleep(self.step_delay)
             self.requests.append({"headers": dict(request.headers), "body": body,
                                   "query": dict(request.query_params)})
             if presented_key(request) != VALID_KEY:

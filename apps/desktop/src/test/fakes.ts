@@ -8,7 +8,7 @@ import type {
   VoiceStatus,
 } from "@jack/shared-types";
 import type { DesktopBridge } from "../lib/backend";
-import type { DiscoverySession, DiscoveryStatus, ProjectSpec } from "@jack/shared-types";
+import type { Approval, DiscoverySession, DiscoveryStatus, ProjectSpec, Task, TaskExecution } from "@jack/shared-types";
 
 const PURPOSE = [
   { value: "company", label: "My company or business" },
@@ -254,6 +254,10 @@ export function mockService(init: { voice?: VoiceStatus; notifications?: Notific
     voice: structuredClone(init.voice ?? VOICE),
     notifications: structuredClone(init.notifications ?? []) as Notification[],
     pttError: null as null | { code: string; message: string },
+    tasks: [] as Task[],
+    execution: null as null | TaskExecution,
+    approvals: [] as Approval[],
+    artifactText: "# Answer\n\nObsidian suits a team of five.\n",
     discovery: fakeDiscovery(),
     calls: [] as Array<{ method: string; path: string; body: unknown }>,
   };
@@ -294,8 +298,25 @@ export function mockService(init: { voice?: VoiceStatus; notifications?: Notific
       }
       return json(200, s);
     }
-    if (path.startsWith("/v1/tasks?")) return json(200, { items: [], total: 0 });
-    if (path.startsWith("/v1/tasks/")) return json(200, { ...TASK, events: [] });
+    if (path.startsWith("/v1/tasks?")) return json(200, { items: state.tasks, total: state.tasks.length });
+    const em = path.match(/^\/v1\/tasks\/([^/]+)\/(execution|retry|artifacts\/.+)$/);
+    if (em) {
+      if (em[2] === "execution") return state.execution ? json(200, state.execution) : json(200, { task_id: em[1], summary: null, steps: [], artifacts: [], approvals: [], runs: [] });
+      if (em[2] === "retry") return json(200, { retrying: true });
+      return new Response(state.artifactText, { status: 200 });
+    }
+    if (path.startsWith("/v1/approvals?")) return json(200, state.approvals.filter((a) => a.status === "pending"));
+    const am = path.match(/^\/v1\/approvals\/([^/]+)\/decide$/);
+    if (am) {
+      const a = state.approvals.find((x) => x.id === am[1]);
+      if (!a || a.nonce !== body.nonce) return json(409, { error: { code: "approval_stale", message: "This approval request has changed; reload it" } });
+      a.status = body.decision === "approve" ? "approved" : "denied";
+      return json(200, a);
+    }
+    if (path.startsWith("/v1/tasks/")) {
+      const t = state.tasks.find((x) => path.startsWith(`/v1/tasks/${x.id}`)) ?? TASK;
+      return json(200, { ...t, events: [] });
+    }
     if (path === "/v1/voice/status") return json(200, state.voice);
     if (path === "/v1/voice/devices")
       return json(200, [{ id: "WASAPI:Headset", name: "Headset", host_api: "WASAPI", is_default: true, channels: 1 }]);
@@ -368,4 +389,35 @@ export function mockService(init: { voice?: VoiceStatus; notifications?: Notific
     return json(404, { error: { code: "not_found", message: path, request_id: null } });
   };
   return { state, fetchImpl };
+}
+
+export function approval(over: Partial<Approval> = {}): Approval {
+  return {
+    id: "appr-1", task_id: TASK.id, step_id: null, action: "task.execute", target: `task:${TASK.id}`,
+    scope: { spec_sha256: "abc" }, summary: "Start work on “Corporate website” (medium job, 6 components)",
+    risk: "medium", status: "pending", nonce: "nonce-123456", requested_by: "jack",
+    requested_at: "2026-11-13T10:00:00Z", expires_at: "2026-11-20T10:00:00Z",
+    decided_by: null, decided_via: null, decided_at: null, ...over,
+  };
+}
+
+export function execution(over: Partial<TaskExecution> = {}): TaskExecution {
+  const step = (seq: number, key: string, title: string, status: TaskExecution["steps"][number]["status"], extra: Partial<TaskExecution["steps"][number]> = {}) => ({
+    id: `step-${key}`, seq, key, title, kind: "reasoning.document", agent_role: "Solution Architect", idempotent: true,
+    needs_approval: false, status, attempts: status === "pending" ? 0 : 1, blocked_reason: null, error: null, output: null,
+    approval_id: null, started_at: null, finished_at: null, ...extra,
+  });
+  return {
+    task_id: TASK.id,
+    summary: null,
+    steps: [
+      step(1, "architecture", "Solution architecture", "done", { attempts: 2 }),
+      step(2, "structure", "Create the project structure", "blocked", { kind: "capability.build", agent_role: "Senior Developer", blocked_reason: "Needs autonomous development with Claude Code, which arrives in Milestone 11" }),
+      step(3, "deploy", "Deploy to production", "pending", { kind: "capability.deploy", agent_role: "DevOps Engineer", idempotent: false, needs_approval: true }),
+    ],
+    artifacts: [{ id: "art-1", name: "architecture.md", kind: "document", size_bytes: 2048, sha256: "f".repeat(64), step_id: "step-architecture", path: "/data/workspaces/x/architecture.md", created_at: "2026-11-13T10:01:00Z" }],
+    approvals: [],
+    runs: [{ workflow_id: `task-${TASK.id}`, run_id: "r1", status: "running", started_at: "2026-11-13T10:00:00Z", ended_at: null }],
+    ...over,
+  };
 }

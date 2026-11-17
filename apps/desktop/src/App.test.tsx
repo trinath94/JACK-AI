@@ -1,9 +1,10 @@
+import type { Task } from "@jack/shared-types";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import { BackendProvider } from "./lib/backend";
 import { NAV } from "./lib/nav";
-import { CONN, FakeWebSocket, METRICS, TASK, fakeBridge, mockService, type FakeBridge } from "./test/fakes";
+import { CONN, FakeWebSocket, METRICS, TASK, approval, execution, fakeBridge, mockService, type FakeBridge } from "./test/fakes";
 
 let service: ReturnType<typeof mockService>;
 
@@ -478,5 +479,57 @@ describe("Command Centre (M5)", () => {
     act(() => ws.emit("voice.state", { state: "listening" }));
     act(() => ws.emit("voice.followup", { wait_s: 8 }));
     expect(await screen.findByText(/Listening for your answer/)).toBeInTheDocument();
+  });
+});
+
+describe("Durable tasks and approvals (M6)", () => {
+  beforeEach(() => {
+    FakeWebSocket.instances = [];
+    localStorage.clear();
+    service = mockService();
+    vi.stubGlobal("fetch", vi.fn(service.fetchImpl));
+  });
+
+  it("shows a task's steps, why it waits, and the files it produced", async () => {
+    service.state.tasks = [{ ...TASK, title: "Corporate website for Acme", status: "PAUSED", status_reason: "Waiting at “Create the project structure”: Needs autonomous development with Claude Code, which arrives in Milestone 11" } as Task];
+    service.state.execution = execution();
+    renderApp();
+    await connect();
+    fireEvent.keyDown(window, { key: "2", ctrlKey: true });
+    expect(await screen.findByTestId("task-title")).toHaveTextContent("Corporate website for Acme");
+    expect(screen.getByTestId("status-reason")).toHaveTextContent("Milestone 11");
+    const arch = await screen.findByTestId("step-architecture");
+    expect(arch).toHaveTextContent("done");
+    expect(arch).toHaveTextContent("2 attempts");
+    expect(screen.getByTestId("step-structure")).toHaveTextContent("waiting");
+    expect(screen.getByTestId("step-deploy")).toHaveTextContent("not repeated automatically");
+    expect(screen.getByRole("button", { name: /Resume/ })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "architecture.md" }));
+    expect(await screen.findByTestId("artifact-text")).toHaveTextContent("Obsidian suits a team of five");
+  });
+
+  it("offers retry for a failed task", async () => {
+    service.state.tasks = [{ ...TASK, status: "FAILED" } as Task];
+    service.state.execution = execution();
+    renderApp();
+    await connect();
+    fireEvent.keyDown(window, { key: "2", ctrlKey: true });
+    fireEvent.click(await screen.findByRole("button", { name: /Retry from where it stopped/ }));
+    await waitFor(() => expect(service.state.calls.some((c) => c.method === "POST" && c.path === `/v1/tasks/${TASK.id}/retry`)).toBe(true));
+  });
+
+  it("decides an approval from the Home queue with its nonce", async () => {
+    service.state.approvals = [approval()];
+    renderApp();
+    await connect();
+    const queue = await screen.findByRole("list", { name: "Pending approvals" });
+    expect(within(queue).getByText(/Start work on/)).toBeInTheDocument();
+    expect(within(queue).getByText(`task.execute · task:${TASK.id}`)).toBeInTheDocument();
+    fireEvent.click(within(queue).getByRole("button", { name: /Approve/ }));
+    await waitFor(() => {
+      const call = service.state.calls.find((c) => c.path === "/v1/approvals/appr-1/decide");
+      expect(call?.body).toEqual({ decision: "approve", nonce: "nonce-123456" });
+    });
+    expect(await screen.findByText(/No pending approvals/)).toBeInTheDocument();
   });
 });

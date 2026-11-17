@@ -46,11 +46,19 @@ def download(module: str, version: str, expected_sum: str) -> Path:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("output")
+    ap.add_argument("output", nargs="?", default=None,
+                    help="output path; default: the Tauri sidecar path for this machine")
     ap.add_argument("--goos", default=None)
     ap.add_argument("--goarch", default="amd64")
     a = ap.parse_args()
-    out = Path(a.output).resolve()
+    if a.output:
+        out = Path(a.output).resolve()
+    else:  # apps/desktop/src-tauri/binaries/temporal-<rust target triple>[.exe] (externalBin)
+        sys.path.insert(0, str(Path(__file__).parent))
+        from build_sidecar import OUT, target_triple
+
+        win = (a.goos or ("windows" if sys.platform == "win32" else "")) == "windows"
+        out = OUT / f"temporal-{target_triple()}{'.exe' if win else ''}"
     src = download("github.com/temporalio/cli", VERSION, MODULE_SUM)
     cliext = download("github.com/temporalio/cli/cliext", CLIEXT_VERSION, CLIEXT_SUM)
     with tempfile.TemporaryDirectory(prefix="temporal-src-") as tmp:

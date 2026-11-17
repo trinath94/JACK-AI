@@ -38,13 +38,25 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - run: uv sync --locked
+      - name: Cache Temporal server build
+        id: temporal-cache
+        uses: actions/cache@v4
+        with:
+          path: .temporal-bin
+          key: temporal-cli-v1.9.1-${{ runner.os }}-${{ hashFiles('scripts/build_temporal.py') }}
+      - name: Build Temporal server (pinned release, from checksum-verified source)
+        if: steps.temporal-cache.outputs.cache-hit != 'true'
+        run: uv run --locked --project services/api python ../../scripts/build_temporal.py ../../.temporal-bin/temporal${{ runner.os == 'Windows' && '.exe' || '' }}
       - run: uv run ruff check src tests
       - run: uv run mypy src
-      - name: Tests (SQLite)
-        run: uv run pytest -q --junitxml=../../reports/service-sqlite.xml
+      - name: Tests (SQLite; embedded PostgreSQL and Temporal tests included)
+        env:
+          JACK_TEMPORAL_BIN: ${{ github.workspace }}/.temporal-bin/temporal
+        run: uv run pytest -q -rs --junitxml=../../reports/service-sqlite.xml
       - name: Tests (PostgreSQL 16)
         env:
           JACK_TEST_DATABASE_URL: postgresql+psycopg://postgres:jacktest@127.0.0.1:5432/postgres
+          JACK_TEMPORAL_BIN: ${{ github.workspace }}/.temporal-bin/temporal
         run: uv run pytest -q --junitxml=../../reports/service-postgres.xml
       - name: Speech tools for real-model tests
         run: sudo apt-get update && sudo apt-get install -y espeak-ng sox
@@ -114,8 +126,10 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
       - name: Build service sidecar
         run: uv run --locked --project services/api python scripts/build_sidecar.py
-      - name: Placeholder frontend dist for compile
-        run: mkdir -p apps/desktop/dist && echo '<!doctype html>' > apps/desktop/dist/index.html
+      - name: Placeholder frontend dist and Temporal sidecar for compile
+        run: |
+          mkdir -p apps/desktop/dist && echo '<!doctype html>' > apps/desktop/dist/index.html
+          touch apps/desktop/src-tauri/binaries/temporal-x86_64-unknown-linux-gnu
       - working-directory: apps/desktop/src-tauri
         run: cargo fmt --check
       - working-directory: apps/desktop/src-tauri
@@ -156,6 +170,17 @@ jobs:
           workspaces: apps/desktop/src-tauri
       - run: pnpm install --frozen-lockfile
       - run: uv run --locked --project services/api python scripts/build_sidecar.py
+      - name: Cache Temporal server build
+        id: temporal-cache
+        uses: actions/cache@v4
+        with:
+          path: .temporal-bin
+          key: temporal-cli-v1.9.1-${{ runner.os }}-${{ hashFiles('scripts/build_temporal.py') }}
+      - name: Build Temporal server (pinned release, from checksum-verified source)
+        if: steps.temporal-cache.outputs.cache-hit != 'true'
+        run: uv run --locked --project services/api python scripts/build_temporal.py .temporal-bin/temporal${{ runner.os == 'Windows' && '.exe' || '' }}
+      - name: Temporal sidecar for the bundle
+        run: cp .temporal-bin/temporal apps/desktop/src-tauri/binaries/temporal-x86_64-unknown-linux-gnu
       - name: Cache speech models
         uses: actions/cache@v4
         with:
@@ -197,11 +222,25 @@ jobs:
         with:
           workspaces: apps/desktop/src-tauri
       - run: pnpm install --frozen-lockfile
-      - name: Service tests on Windows (includes SAPI text-to-speech)
+      - name: Cache Temporal server build
+        id: temporal-cache
+        uses: actions/cache@v4
+        with:
+          path: .temporal-bin
+          key: temporal-cli-v1.9.1-${{ runner.os }}-${{ hashFiles('scripts/build_temporal.py') }}
+      - name: Build Temporal server (pinned release, from checksum-verified source)
+        if: steps.temporal-cache.outputs.cache-hit != 'true'
+        run: uv run --locked --project services/api python scripts/build_temporal.py .temporal-bin/temporal${{ runner.os == 'Windows' && '.exe' || '' }}
+      - name: Service tests on Windows (SAPI, Credential Manager, embedded PostgreSQL, Temporal)
         working-directory: services/api
+        env:
+          JACK_TEMPORAL_BIN: ${{ github.workspace }}\.temporal-bin\temporal.exe
         run: uv run --locked pytest -q -rs
-      - name: Build service sidecar (jack-service.exe)
-        run: uv run --locked --project services/api python scripts/build_sidecar.py
+      - name: Build service sidecar (jack-service.exe) and place the Temporal sidecar
+        shell: pwsh
+        run: |
+          uv run --locked --project services/api python scripts/build_sidecar.py
+          Copy-Item .temporal-bin/temporal.exe apps/desktop/src-tauri/binaries/temporal-x86_64-pc-windows-msvc.exe
       - name: Frozen sidecar smoke test (PortAudio and psutil bundled)
         shell: pwsh
         run: |
@@ -209,6 +248,7 @@ jobs:
           $env:JACK_SESSION_TOKEN = -join ((1..64) | ForEach-Object { '{0:x}' -f (Get-Random -Max 16) })
           $env:JACK_PORT = "48765"
           $env:JACK_DATA_DIR = Join-Path $env:RUNNER_TEMP "jack-smoke"
+          $env:JACK_TEMPORAL_BIN = (Resolve-Path .temporal-bin/temporal.exe).Path
           $p = Start-Process $exe -PassThru -NoNewWindow
           try {
             $h = @{ Authorization = "Bearer $($env:JACK_SESSION_TOKEN)" }
@@ -230,6 +270,13 @@ jobs:
             $ai = Invoke-RestMethod http://127.0.0.1:48765/v1/ai/status -Headers $h
             "Credential store: $($ai.credential_store.kind) secure=$($ai.credential_store.secure)" | Write-Host
             if (-not $ai.credential_store.secure -or $ai.credential_store.kind -notlike "*Windows*") { throw "Windows Credential Manager not available in jack-service.exe" }
+            # Durable tasks (M6): embedded PostgreSQL (D-1) and the Temporal server must run.
+            $health = Invoke-RestMethod http://127.0.0.1:48765/v1/health -Headers $h
+            $health.components | Format-Table name, status, detail -AutoSize | Out-String | Write-Host
+            $db = $health.components | Where-Object name -eq "database"
+            $orch = $health.components | Where-Object name -eq "orchestrator"
+            if ($db.detail -notlike "PostgreSQL 16*") { throw "embedded PostgreSQL not running: $($db.detail)" }
+            if ($orch.status -ne "healthy") { throw "task orchestration not running: $($orch.detail)" }
           } finally { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue }
       - name: Rust tests on Windows (includes Job Object supervisor test)
         working-directory: apps/desktop/src-tauri
