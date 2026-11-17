@@ -17,6 +17,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from jack_api.ai.providers import ProviderError
+
 # kind -> (what's needed, milestone)
 CAPABILITIES: dict[str, tuple[str, int]] = {
     "capability.agents": ("the multi-agent system", 7),
@@ -57,6 +59,15 @@ class Blocked(Exception):
 
 
 Executor = Callable[[StepContext], StepResult]
+
+USER_FIXABLE = {
+    "not_configured": "Needs Claude: set up the Anthropic API or Claude Code in Usage and "
+                      "Billing, then resume",
+    "auth": "Claude rejected the API key: update it in Usage and Billing, then resume",
+    "permission": "The API key isn't allowed to do this: check it in Usage and Billing, then "
+                  "resume",
+    "budget": "A spending limit was reached: raise it in Usage and Billing, then resume",
+}
 
 
 def availability(kind: str, *, reasoning_ready: bool,
@@ -107,8 +118,15 @@ def reasoning_document(ctx: StepContext) -> StepResult:
     prompt = (f"Specification:\n{_spec_text(ctx.spec)}\n\n"
               + (f"{earlier}\n\n" if earlier else "")
               + f"Your task — {ctx.step['title']}:\n{task_text}")
-    reply = ctx.complete(prompt, purpose="task.step", system=SYSTEM, task_id=ctx.task_id,
-                         max_tokens=8000, effort="medium")
+    try:
+        reply = ctx.complete(prompt, purpose="task.step", system=SYSTEM, task_id=ctx.task_id,
+                             max_tokens=8000, effort="medium")
+    except ProviderError as exc:
+        # Things only the user can fix pause the task instead of failing it; transient errors
+        # (rate limits, outages, timeouts) are retried.
+        if exc.code in USER_FIXABLE:
+            raise Blocked(USER_FIXABLE[exc.code] + f" ({exc})") from exc
+        raise
     text = str(reply.get("text") or "").strip()
     if not text:
         raise RuntimeError("Claude returned an empty document")

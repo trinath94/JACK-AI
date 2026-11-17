@@ -136,6 +136,8 @@ class DiscoveryEngine:
                 row = self._load(session_id)
                 if row.status not in ACTIVE:
                     raise SessionClosed(f"That conversation is {row.status}")
+                if rules.looks_like_new_command(text):
+                    row = None  # typed "Create a logo…" while a question is open: a new job
             elif continue_active:
                 row = self._active_row()
                 if row is not None and rules.looks_like_new_command(text):

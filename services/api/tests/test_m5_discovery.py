@@ -299,7 +299,8 @@ def test_task_answers_route_and_active_session(client: TestClient) -> None:
 
 def test_a_new_typed_command_starts_a_new_session(client: TestClient) -> None:
     first = say(client, "Build a website")
-    second = say(client, "Create a logo for my bakery")
+    # Even typed into the open conversation, a clear new request starts its own.
+    second = say(client, "Create a logo for my bakery", first["reply"]["session_id"])
     assert first["reply"]["task_id"] != second["reply"]["task_id"]
     assert second["session"]["category"] == "image_generation"
 

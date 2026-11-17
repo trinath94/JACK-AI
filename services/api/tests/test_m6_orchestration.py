@@ -191,6 +191,22 @@ def test_reasoning_waits_for_claude_then_continues(tmp_path: Path, token: str,
         wait(lambda: status(c, tid) == "COMPLETED")  # the key unblocked it, no restart needed
 
 
+def test_rejected_key_pauses_the_task_instead_of_failing_it(jack: Jack,
+                                                           fake: FakeAnthropic) -> None:
+    with jack as c:
+        wrong = "sk-ant-api03-" + "W" * 40  # well-formed, but the API rejects it
+        assert c.put("/v1/ai/anthropic/key", json={"api_key": wrong}).status_code == 204
+        tid, _ = research(c)
+        wait(lambda: status(c, tid) == "PAUSED")
+        reason = c.get(f"/v1/tasks/{tid}").json()["status_reason"]
+        assert "rejected the API key" in reason
+        assert steps(c, tid)["research"]["status"] == "blocked"
+        time.sleep(2)
+        assert status(c, tid) == "PAUSED"  # waits; doesn't spin or burn retries
+        assert c.put("/v1/ai/anthropic/key", json={"api_key": VALID_KEY}).status_code == 204
+        wait(lambda: status(c, tid) == "COMPLETED")
+
+
 # ------------------------------------------------------------------ controls
 def test_pause_finishes_the_step_then_waits_and_resume_continues(jack: Jack,
                                                                  fake: FakeAnthropic) -> None:

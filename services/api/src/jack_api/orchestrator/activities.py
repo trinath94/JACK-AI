@@ -148,6 +148,12 @@ class Activities:
                        f"“{st.title}” was interrupted and is not safe to repeat automatically. "
                        "Check it, then resume to run it again or cancel the task.")
             return {"status": "needs_review"}
+        if st.status == "blocked" and st.blocked_reason:
+            # Blocked while running (e.g. the key was rejected): stay put until the user
+            # resumes or the setup changes, which re-opens the step (set_resumed).
+            self._move(task_id, S.EXECUTION, f"Working on “{st.title}”")
+            self._move(task_id, S.PAUSED, f"Waiting at “{st.title}”: {st.blocked_reason}")
+            return {"status": "blocked", "reason": st.blocked_reason}
         ok, why = availability(st.kind, reasoning_ready=self.d.reasoning_ready(),
                                registry=self.d.executors)
         if not ok:
@@ -287,11 +293,14 @@ class Activities:
 
     @activity.defn(name="set_resumed")
     def set_resumed(self, task_id: str) -> None:
-        """The user resumed: interrupted steps they've now reviewed may run again."""
+        """The user resumed (or the setup changed): interrupted steps they've reviewed may run
+        again, and blocked steps are checked afresh."""
         with self.d.db.session() as s:
-            for st in s.scalars(select(TaskStep).where(TaskStep.task_id == task_id,
-                                                       TaskStep.status == "needs_review")):
+            for st in s.scalars(select(TaskStep).where(
+                    TaskStep.task_id == task_id,
+                    TaskStep.status.in_(("needs_review", "blocked")))):
                 st.status = "pending"
+                st.blocked_reason = None
                 st.updated_at = utcnow()
         task, _ = self.d.tasks.get(task_id)
         if task.status in (S.PAUSED, S.WAITING_FOR_INFORMATION, S.WAITING_FOR_APPROVAL):

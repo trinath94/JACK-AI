@@ -51,6 +51,7 @@ function fakeDiscovery() {
     settings: { engine: "auto" as "auto" | "local", approval: "auto" as "auto" | "always", followup_listen: true },
     message(text: string, sessionId?: string | null) {
       let s = sessions.find((x) => x.id === sessionId);
+      if (s && /^create /i.test(text)) s = undefined; // a clear new request starts its own
       if (!s) {
         step = 0;
         s = {
@@ -263,7 +264,9 @@ export function mockService(init: { voice?: VoiceStatus; notifications?: Notific
   };
   const json = (status: number, body: unknown) =>
     new Response(body === undefined ? null : JSON.stringify(body), { status });
+  const gate = { messages: null as null | Promise<void> };
   const fetchImpl = async (url: string, init?: RequestInit) => {
+    if (gate.messages && url.endsWith("/v1/discovery/messages")) await gate.messages;
     const path = url.replace(CONN.baseUrl, "");
     const method = init?.method ?? "GET";
     const body = init?.body ? JSON.parse(String(init.body)) : undefined;
@@ -388,7 +391,7 @@ export function mockService(init: { voice?: VoiceStatus; notifications?: Notific
     if (path === "/v1/system/info") return json(404, {});
     return json(404, { error: { code: "not_found", message: path, request_id: null } });
   };
-  return { state, fetchImpl };
+  return { state, fetchImpl, gate };
 }
 
 export function approval(over: Partial<Approval> = {}): Approval {

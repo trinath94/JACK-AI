@@ -16,6 +16,17 @@ Deliverable 3 of Section 30.
   each row stores `prev_hash` + `hash = SHA-256(prev_hash ‖ canonical_json(row))`, giving a
   tamper-evident chain that `GET /v1/audit/verify` checks.
 
+## 1a. Where data lives (Milestone 6, decision D-1)
+
+| Store | File / process | Holds |
+|---|---|---|
+| PostgreSQL 16 (embedded) | `data\pg16`, server on `127.0.0.1:<random port>` | every table below except `settings` |
+| SQLite | `data\prefs.db` | `settings` (preferences) |
+| SQLite (Temporal) | `data\temporal\temporal.db` | workflow history (Temporal's own schema) |
+| SQLite (fallback) | `data\jack.db` | everything, only when PostgreSQL can't run; a pre-M6 `jack.db` is moved to PostgreSQL once and kept as `jack.db.pre-postgres-<timestamp>` |
+
+`tasks` gains `summary` (completion summary) in migration 0006.
+
 ## 2. Entity overview
 
 Legend: **M1** = implemented in Milestone 1; others are designed now and created by the
@@ -36,9 +47,10 @@ migration of the milestone noted.
 | `requirement_sessions` | id, task_id (unique), status, category, state JSON (answers with their source — user / inferred / default — and engine, questions asked, pending question, resolved conflicts, notes), spec JSON, created_at, updated_at, approved_at | **M5** (migration 0005) |
 | `requirement_turns` | id, session_id, seq, role(user/jack), text, slot?, source(voice/typed/ui)?, created_at | **M5** (migration 0005) |
 | `requirement_specs` | — | Superseded in M5: the specification is `requirement_sessions.spec`, one per task; approval is `approved_at` plus a `requirements.approve` audit event. A separate versioned table can follow with projects (M8) |
-| `workflow_runs` | id, task_id, temporal_workflow_id, run_id, status, started_at, ended_at | M6 |
-| `task_steps` | id, task_id, workflow_run_id, name, agent_id?, status, idempotent bool, attempt, input JSON, output JSON, started_at, ended_at | M6 |
-| `approvals` | id, task_id, action, target, scope JSON, risk_class, requested_by, status(pending/approved/denied/expired), decided_by_user_id?, decided_at?, expires_at, nonce | M6 |
+| `workflow_runs` | id, task_id, workflow_id (`task-<task id>`), run_id, status(running/completed/failed/cancelled/lost), started_at, ended_at | **M6** (migration 0006) |
+| `task_steps` | id, task_id, seq, key (unique per task), title, kind (executor), agent_role, idempotent, needs_approval, instructions, status(pending/running/done/blocked/waiting_approval/needs_review/skipped/failed), attempts, blocked_reason, error, output JSON, approval_id, started_at, finished_at | **M6** (migration 0006) |
+| `approvals` | id, task_id, step_id?, action, target, scope JSON, summary, risk, status(pending/approved/denied/expired/withdrawn), nonce (single use), requested_by, requested_at, expires_at, decided_by, decided_via(ui/voice), decided_at | **M6** (migration 0006) |
+| `task_artifacts` | id, task_id, step_id?, name, path (inside `data\workspaces\<task>`), kind(document/summary), size_bytes, sha256, created_at | **M6** (migration 0006) |
 | `notifications` | id, level, kind, title, body, task_id?, created_at, read_at? | **M2** (migration 0002) |
 | `agents` | id, key, name, version, allowed_tools JSON, limits JSON | M7 |
 | `agent_executions` | id, agent_id, task_step_id, input JSON, output JSON, verdict(accepted/rejected), tokens, cost_usd | M7 |

@@ -1,6 +1,6 @@
 import type { AuditEvent, DiscoveryResult, TaskDetail } from "@jack/shared-types";
 import { CornerDownLeft, RotateCcw, X } from "lucide-react";
-import { useEffect, useState, type FormEvent, type ReactNode, type RefObject } from "react";
+import { useEffect, useRef, useState, type FormEvent, type ReactNode, type RefObject } from "react";
 import { ApprovalList } from "../components/ApprovalList";
 import { PushToTalk } from "../components/PushToTalk";
 import { Card, Meter, Pill, formatBytes, formatTime, healthTone, taskTone, usd } from "../components/ui";
@@ -123,18 +123,28 @@ function CommandBox({ online, inputRef, onOpenCommand }: {
   const [command, setCommand] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [ex, setEx] = useState<Exchange | null>(null);
+  const [ex, setExState] = useState<Exchange | null>(null);
   const [dismissed, setDismissed] = useState<string | null>(null);
+  // The conversation the box is on right now. Live events can arrive before an HTTP reply, so a
+  // refresh started earlier must never switch the box back to an older conversation.
+  const exRef = useRef<Exchange | null>(null);
+  const setEx = (v: Exchange | null) => {
+    exRef.current = v;
+    setExState(v);
+  };
 
   // Show the conversation JACK is waiting on (also after navigating away and back), and keep the
   // question current when it moves on elsewhere (voice, Command Centre).
   useEffect(() => {
     if (!api) return;
     let live = true;
-    const pick = ex ? Promise.resolve(ex.sessionId)
+    const current = exRef.current;
+    const pick = current ? Promise.resolve(current.sessionId)
       : api.discoverySessions(true).then((l) => l.find((s) => s.id !== dismissed)?.id ?? null);
     pick.then((id) => (id ? api.discoverySession(id) : null)).then((s) => {
       if (!s) return;
+      const now = exRef.current;
+      if (now ? now.sessionId !== s.id : current !== null) return; // superseded meanwhile
       const last = [...(s.turns ?? [])].reverse().find((t) => t.role === "jack");
       if (!live || !last) return;
       const q = s.question;

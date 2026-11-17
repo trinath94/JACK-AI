@@ -472,6 +472,32 @@ describe("Command Centre (M5)", () => {
     await waitFor(() => expect(service.state.discovery.settings.followup_listen).toBe(false));
   });
 
+  it("keeps the Home box on a new request even if a live event arrives first", async () => {
+    service.state.discovery.message("Build a website"); // a spoken conversation, still open
+    renderApp();
+    const ws = await connect();
+    expect(await screen.findByTestId("discovery-exchange")).toHaveTextContent("What is the website for?");
+    let release!: () => void;
+    service.gate.messages = new Promise<void>((r) => (release = r));
+    const input = screen.getByLabelText("Command");
+    fireEvent.change(input, { target: { value: "Create a logo for my bakery" } });
+    fireEvent.click(screen.getByRole("button", { name: /send/i }));
+    // The service announces the change before the HTTP reply reaches the box.
+    act(() => ws.emit("discovery.updated", { session_id: "sess-2", task_id: "task-1", status: "asking" }));
+    await act(async () => {
+      release();
+      service.gate.messages = null;
+    });
+    await waitFor(() => expect(screen.getByTestId("discovery-exchange")).toHaveTextContent("What is the website for?"));
+    await new Promise((r) => setTimeout(r, 50));
+    fireEvent.change(screen.getByLabelText("Command"), { target: { value: "Flat and minimal" } });
+    fireEvent.click(screen.getByRole("button", { name: /send/i }));
+    await waitFor(() => {
+      const posted = service.state.calls.filter((c) => c.path === "/v1/discovery/messages").map((c) => (c.body as { session_id: string | null }).session_id);
+      expect(posted.at(-1)).toBe("sess-2"); // the answer goes to the new conversation
+    });
+  });
+
   it("shows when JACK is listening for the answer", async () => {
     service.state.discovery.message("Build a website");
     const ws = await openCommandCentre();

@@ -13,9 +13,9 @@ and the evidence that must be captured. Scenarios run on a clean Windows 11 x64 
 | E | Production deploy | Staging verified | Shows target host, release id, backup status, plan; waits for approval; deploys; health + external URL verified; rollback available | Deployment report, approval audit row | M13 |
 | F | Logo generation | Image provider configured | Collects brand details; calls provider; saves chosen asset; cost recorded | Asset file + usage record | M14 |
 | G | Self-upgrade | JACK source repo connected | Isolated branch build; tests; signed package; approval before install; health after; rollback works | Update log, signature check | M16 |
-| H | Interruption | Long-running task | Pause → state persisted; resume continues from last completed step; cancel leaves no partial deploy | Task events table | M6 |
+| H | Interruption | Long-running task | Pause → state persisted; resume continues from last completed step; cancel leaves no partial deploy | Task events table | **M6: done** — pause/resume/cancel mid-step and service SIGKILL mid-step, in tests and the release-build e2e |
 | I | Unauthorized production op | Task in ASSISTED mode | Production action rejected; `audit_events` row with outcome=`denied`; chain verifies | Audit export | M7 (partial M1: unauthenticated API calls rejected + audited) |
-| J | Windows restart | Task mid-execution | After reboot, task visible; idempotent steps resume; non-idempotent step flagged `needs_review` | Task events before/after | M6 |
+| J | Windows restart | Task mid-execution | After reboot, task visible; idempotent steps resume; non-idempotent step flagged `needs_review` | Task events before/after | **M6: done on Linux** (power loss simulated with kill -9 of every process; needs_review for unsafe steps tested); a real Windows reboot is still to be tried |
 
 ## Milestone 1 acceptance (automated)
 

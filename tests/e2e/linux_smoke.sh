@@ -20,6 +20,11 @@
 #      is approved by a typed reply and the task moves to PLANNING; with speech models, a
 #      spoken command gets a spoken question and the answer is captured by follow-up
 #      listening (no wake word)
+#  13. (AI_E2E=1, M6) durable tasks: the approved website task waits for Claude, continues on
+#      its own once a key is saved, writes its architecture and stops honestly where building
+#      needs Milestone 11; a research task survives a SIGKILL of the service mid-step, and
+#      another survives a simulated power loss (app, service, PostgreSQL and Temporal all
+#      killed with -9), both completing with their document
 #  11. (AI_E2E=1) Usage and Billing: an Anthropic API key typed into the UI is stored (never
 #      written to the database or logs), "Test connection" reaches a local fake Messages
 #      API with the key as a Bearer token, and the call is recorded with an estimated cost
@@ -36,7 +41,10 @@ mkdir -p "$OUT"
 export DISPLAY=:97
 export XDG_DATA_HOME="$OUT/xdg-data" XDG_CONFIG_HOME="$OUT/xdg-config"
 export WEBKIT_DISABLE_COMPOSITING_MODE=1 NO_AT_BRIDGE=1
-DB="$XDG_DATA_HOME/ai.jack.desktop/data/jack.db"
+DATA="$XDG_DATA_HOME/ai.jack.desktop/data"
+DB="$DATA/jack.db"   # SQLite fallback; embedded PostgreSQL (M6) lives in $DATA/pg16
+REPO="$(cd "$(dirname "$0")/../.." && pwd)"
+PYV="$REPO/services/api/.venv/bin/python"   # has psycopg, for reading PostgreSQL
 HAVE_MODELS=0
 if [[ -n "${JACK_MODELS_DIR:-}" ]] && ls -d "$JACK_MODELS_DIR"/models--Systran--faster-whisper-{tiny,small}.en/snapshots/* >/dev/null 2>&1; then
   HAVE_MODELS=1; export JACK_MODELS_DIR
@@ -50,17 +58,27 @@ bad() { echo "FAIL  $*"; FAIL=$((FAIL+1)); }
 wait_until() { local t=$1; shift; for _ in $(seq 1 $((t*4))); do "$@" && return 0; sleep 0.25; done; return 1; }
 all_service_pids() { pgrep -f "^$BIN_DIR/jack-service" || true; }
 service_pid() { pgrep -P "$1" -f "jack-service" | head -1; }   # direct child of the app
-q() { python3 -c "import sqlite3,sys; print(sqlite3.connect(sys.argv[1]).execute(sys.argv[2]).fetchone()[0])" "$DB" "$1" 2>/dev/null || echo 0; }
+q() { "$PYV" "$REPO/tests/e2e/dbq.py" "$DATA" "$1" 2>/dev/null || echo 0; }
 q_ge() { [[ "$(q "$1")" -ge "$2" ]]; }
-no_services() { [[ -z "$(all_service_pids)" ]]; }
+# The service's own servers (M6): embedded PostgreSQL and Temporal must never outlive it.
+stray_pids() { { pgrep -f "pginstall/bin/postgres -D $DATA" || true; pgrep -f "^$BIN_DIR/temporal server" || true; } | tr '\n' ' '; }
+no_services() { [[ -z "$(all_service_pids)" && -z "$(stray_pids)" ]]; }
 start_app() { "$APP" >> "$OUT/app.log" 2>&1 & APP_PID=$!; }
+save_key() {  # type the API key into Usage and Billing (Ctrl+5), as a user would
+  xdotool windowactivate --sync "$WIN" 2>/dev/null || true
+  xdotool key ctrl+5; sleep 2
+  # Window-relative position of the key field (calibrated on the 08 shot).
+  xdotool mousemove --window "$WIN" "${AI_KEY_X:-487}" "${AI_KEY_Y:-572}" click 1
+  xdotool type --delay 5 "$AI_KEY"
+  xdotool key Return
+}
 
 if [[ -n "$(all_service_pids)" ]]; then echo "stale jack-service processes running; aborting"; exit 2; fi
 
 AI_KEY="sk-ant-api03-$(printf 'T%.0s' $(seq 1 40))"  # the fake API's accepted test key
 if [[ "${AI_E2E:-0}" == 1 ]]; then
-  REPO="$(cd "$(dirname "$0")/../.." && pwd)"
-  uv run --project "$REPO/services/api" python "$REPO/tests/e2e/run_fake_anthropic.py" "$OUT/fake_api.url" \
+  # Task steps (M6) answer slowly, so the crash tests can kill JACK in the middle of one.
+  FAKE_STEP_DELAY=10 "$PYV" "$REPO/tests/e2e/run_fake_anthropic.py" "$OUT/fake_api.url" \
     > "$OUT/fake_api.log" 2>&1 & FAKE_API=$!
   wait_until 30 test -s "$OUT/fake_api.url"
   export JACK_ANTHROPIC_BASE_URL="$(cat "$OUT/fake_api.url")"
@@ -152,9 +170,16 @@ if [[ -n "$WIN" ]]; then
   TS=$(q "select t.status from tasks t join requirement_sessions r on r.task_id=t.id where r.id='$SID'")
   TT=$(q "select t.title from tasks t join requirement_sessions r on r.task_id=t.id where r.id='$SID'")
   HOST=$(q "select json_extract(spec,'$.hosting.choice') from requirement_sessions where id='$SID'")
-  [[ "$TS" == PLANNING && "$TT" == "Corporate website for Acme Holdings" && "$HOST" == own_server ]] \
-    && ok "specification approved; task \"$TT\" moved to PLANNING (hosting: $HOST)" \
-    || bad "approval: task=$TS title=$TT hosting=$HOST"
+  WT=$(q "select task_id from requirement_sessions where id='$SID'")
+  AP=$(q "select decided_via from approvals where task_id='$WT' and action='task.execute' and status='approved'")
+  [[ "$TT" == "Corporate website for Acme Holdings" && "$HOST" == own_server && "$AP" == ui ]] \
+    && ok "specification approved (bound approval decided via the UI); task \"$TT\" (hosting: $HOST)" \
+    || bad "approval: task=$TS title=$TT hosting=$HOST approval=$AP"
+  if [[ "${AI_E2E:-0}" == 1 ]]; then  # no Claude yet: the workflow waits honestly
+    wait_until 30 bash -c "[[ \"\$(\"$PYV\" \"$REPO/tests/e2e/dbq.py\" \"$DATA\" \"select status_reason from tasks where id='$WT'\")\" == *'Needs Claude'* ]]" \
+      && ok "the task started and waits for Claude: \"$(q "select status_reason from tasks where id='$WT'" | cut -c1-80)…\"" \
+      || bad "task not waiting for Claude (status=$(q "select status from tasks where id='$WT'"))"
+  fi
   REPEAT=$(q "select count(*) - count(distinct slot) from requirement_turns where session_id='$SID' and role='jack' and slot is not null")
   [[ "$REPEAT" == 0 ]] && ok "no question was asked twice" || bad "$REPEAT questions repeated"
   xdotool key ctrl+6; sleep 2
@@ -167,10 +192,7 @@ if [[ "${AI_E2E:-0}" == 1 && -n "$WIN" ]]; then
   xdotool windowactivate --sync "$WIN" 2>/dev/null || true
   xdotool key ctrl+5; sleep 2
   import -window root "$OUT/08-usage-before.png"
-  # Window-relative position of the key field (calibrated on the 08 shot).
-  xdotool mousemove --window "$WIN" "${AI_KEY_X:-487}" "${AI_KEY_Y:-572}" click 1
-  xdotool type --delay 5 "$AI_KEY"
-  xdotool key Return
+  save_key
   wait_until 15 q_ge "select count(*) from audit_events where action='credential.set'" 1 \
     && ok "API key saved from the UI (audited as credential.set)" || bad "API key not saved"
   sleep 2
@@ -184,7 +206,7 @@ if [[ "${AI_E2E:-0}" == 1 && -n "$WIN" ]]; then
   LAST=$(tail -1 "$OUT/fake_api.requests.jsonl" 2>/dev/null)
   [[ "$LAST" == *'"bearer_present": true'* && "$LAST" == *'"fallbacks": "default"'* ]] \
     && ok "API received the stored key as a Bearer token, with refusal fallback on" || bad "unexpected API request: $LAST"
-  if grep -aq "$AI_KEY" "$DB" "$DB"-wal "$OUT/app.log" "$XDG_DATA_HOME/ai.jack.desktop/logs/"* 2>/dev/null; then
+  if grep -raq "$AI_KEY" "$DB" "$DB"-wal "$DATA/pg16" "$DATA/prefs.db" "$OUT/app.log" "$XDG_DATA_HOME/ai.jack.desktop/logs/" 2>/dev/null; then
     bad "API key found in the database or logs"
   else
     ok "API key appears nowhere in the database or logs"
@@ -220,6 +242,7 @@ if [[ "${VOICE_E2E:-0}" == 1 && -n "$WIN" ]]; then
     CMD=$(q "select command_text from tasks where source='voice' order by created_at desc limit 1")
     [[ "${CMD,,}" == *"corporate website"* ]] && ok "spoken command recognised and saved as a voice task: \"$CMD\"" \
       || bad "spoken command not recognised (got: $CMD)"
+    wait_until 20 q_ge "select count(*) from voice_turns" 2 || true
     TURNS=$(q "select count(*) from voice_turns")
     [[ "${TURNS:-0}" -ge 2 ]] && ok "conversation history recorded ($TURNS turns)" || bad "no conversation history"
     # 12 (voice): JACK spoke a question and keeps listening for the answer, no wake word.
@@ -246,6 +269,68 @@ if [[ "${VOICE_E2E:-0}" == 1 && -n "$WIN" ]]; then
   xdotool key ctrl+1; sleep 1
 fi
 
+# 13: durable tasks (M6)
+if [[ "${AI_E2E:-0}" == 1 && -n "$WIN" ]]; then
+  DBK=$(q "select 'PostgreSQL' from pg_settings limit 1"); [[ "$DBK" == PostgreSQL ]] || DBK=SQLite
+  echo "INFO  database in use: $DBK$( [[ $(id -u) == 0 ]] && echo ' (root: PostgreSQL refuses to run as root, so JACK falls back)')"
+  # The key saved above unblocks the website task without a restart.
+  if [[ -n "${WT:-}" ]]; then
+    wait_until 90 bash -c "[[ \$(\"$PYV\" \"$REPO/tests/e2e/dbq.py\" \"$DATA\" \"select status from task_steps where task_id='$WT' and key='structure'\") == blocked ]]"
+    ARCH="$DATA/workspaces/$WT/architecture.md"
+    R=$(q "select status_reason from tasks where id='$WT'")
+    [[ -s "$ARCH" && "$(q "select status from task_steps where task_id='$WT' and key='architecture'")" == done && "$R" == *"Milestone 11"* ]] \
+      && ok "after the key was saved the task continued: architecture.md written ($(wc -c < "$ARCH") bytes), then it stopped honestly: \"${R:0:90}…\"" \
+      || bad "website task did not continue (architecture=$(q "select status from task_steps where task_id='$WT' and key='architecture'") reason=$R)"
+  fi
+  research() {  # research "<question>": a small job that runs straight away; prints its task id
+    answer "Research $1"
+    answer "Which one suits a team of five on Windows"
+    answer "A quick answer"
+    q "select id from tasks where command_text like 'Research $1%' order by created_at desc limit 1"
+  }
+  step_running() { [[ "$(q "select status from task_steps where task_id='$1' and key='research'")" == running ]]; }
+  task_done() { [[ "$(q "select status from tasks where id='$1'")" == COMPLETED ]]; }
+
+  # 13a: SIGKILL the service while a step is running (Test H)
+  RT=$(research "the best note-taking apps for a small team")
+  wait_until 60 step_running "$RT" && OLD=$(service_pid $APP_PID) && kill -9 "$OLD"
+  # Linux CI has no OS keyring, so the e2e key lives in a memory-only test store and is gone
+  # after a restart: the task pauses ("Needs Claude") until the key is entered again. With
+  # Windows Credential Manager the key survives and this step isn't needed.
+  wait_until 60 bash -c "p=\$(pgrep -P $APP_PID -f jack-service | head -1); [[ -n \"\$p\" && \"\$p\" != $OLD ]]"
+  wait_until 60 q_ge "select count(*) from audit_events where action='task.recover'" 1
+  sleep 3; save_key; sleep 1; xdotool key ctrl+1
+  wait_until 150 task_done "$RT"
+  ATT=$(q "select attempts from task_steps where task_id='$RT' and key='research'")
+  [[ "$(q "select status from tasks where id='$RT'")" == COMPLETED && -s "$DATA/workspaces/$RT/answer.md" && "${ATT:-0}" -ge 2 ]] \
+    && ok "task survived a service SIGKILL mid-step: resumed, step repeated (attempt $ATT, safe to repeat), answer.md written" \
+    || bad "task after service SIGKILL: status=$(q "select status from tasks where id='$RT'") attempts=$ATT"
+  q_ge "select count(*) from audit_events where action='task.recover'" 1 \
+    && ok "restart recorded the recovery (task.recover in the audit log)" || bad "no task.recover audit"
+  WIN=$(xdotool search --name "^JACK AI$" | head -1)
+
+  # 13b: power loss — everything killed at once with -9, then JACK starts again (Test J)
+  PT=$(research "the best password managers for a family")
+  wait_until 60 step_running "$PT"
+  kill -9 "$APP_PID" $(all_service_pids) 2>/dev/null
+  pkill -9 -f "pginstall/bin/postgres -D $DATA" 2>/dev/null; pkill -9 -f "^$BIN_DIR/temporal server" 2>/dev/null
+  wait "$APP_PID" 2>/dev/null
+  wait_until 15 no_services && ok "power loss simulated: app, service, PostgreSQL and Temporal all killed" \
+    || bad "processes survived kill -9: $(all_service_pids | tr '\n' ' ') $(stray_pids)"
+  start_app
+  wait_until 30 bash -c 'xdotool search --name "^JACK AI$" >/dev/null' && WIN=$(xdotool search --name "^JACK AI$" | head -1)
+  wait_until 60 q_ge "select count(*) from audit_events where action='task.recover'" 2
+  sleep 6; save_key; sleep 1; xdotool key ctrl+1   # memory-only test key store: see 13a
+  wait_until 180 task_done "$PT"
+  [[ "$(q "select status from tasks where id='$PT'")" == COMPLETED && -s "$DATA/workspaces/$PT/answer.md" ]] \
+    && ok "task survived a power loss: JACK restarted, recovered it and finished ($DBK, Temporal history intact)" \
+    || bad "task after power loss: status=$(q "select status from tasks where id='$PT'") reason=$(q "select status_reason from tasks where id='$PT'")"
+  xdotool windowactivate --sync "$WIN" 2>/dev/null || true
+  xdotool key ctrl+2; sleep 2
+  import -window root "$OUT/13-active-tasks.png"
+  xdotool key ctrl+1; sleep 1
+fi
+
 # 4: crash recovery
 OLD=$(service_pid $APP_PID)
 kill -9 "$OLD"
@@ -266,14 +351,14 @@ kill -0 "$APP_PID" 2>/dev/null && ok "app still running after window close (tray
 
 # 6: graceful quit
 kill -TERM "$APP_PID"; wait "$APP_PID" 2>/dev/null
-wait_until 15 no_services && ok "no service processes after SIGTERM quit" || bad "orphaned service after quit: $(all_service_pids | tr '\n' ' ')"
+wait_until 15 no_services && ok "no service, PostgreSQL or Temporal processes after SIGTERM quit" || bad "orphaned processes after quit: $(all_service_pids | tr '\n' ' ') $(stray_pids)"
 
 # 10 + 7: relaunch (wake word pre-enabled when testing voice), then hard-kill the app
 if [[ "${VOICE_E2E:-0}" == 1 && $HAVE_MODELS == 1 ]]; then
   # Equivalent to the user having turned the wake word on in a previous session.
-  python3 - "$DB" <<'PY'
+  python3 - "$DATA/prefs.db" <<'PY'
 import sqlite3, sys, json, datetime
-c = sqlite3.connect(sys.argv[1])
+c = sqlite3.connect(sys.argv[1])  # preferences live in prefs.db since M6
 c.execute("insert or replace into settings(key, value, updated_at) values ('voice', ?, ?)",
           (json.dumps({"wake_word_enabled": True}), datetime.datetime.now(datetime.UTC).isoformat()))
 c.commit()
@@ -294,25 +379,19 @@ if [[ "${VOICE_E2E:-0}" == 1 && $HAVE_MODELS == 1 ]]; then
   sleep 3.5  # JACK says "Yes, I'm listening." (into the same virtual mic: echo suppression)
   W=$(xdotool search --name "^JACK AI$" | head -1); [[ -n "$W" ]] && import -window root "$OUT/07-wake-listening.png"
   say "Create a professional company logo."
-  wait_until 60 bash -c "python3 -c \"import sqlite3,sys;sys.exit(0 if sqlite3.connect('$DB').execute(\\\"select count(*) from tasks where source='voice' and lower(command_text) like '%logo%'\\\").fetchone()[0] else 1)\"" \
+  wait_until 60 q_ge "select count(*) from tasks where source='voice' and lower(command_text) like '%logo%'" 1 \
     && ok "wake-word command saved as a voice task: \"$(q "select command_text from tasks where lower(command_text) like '%logo%' limit 1")\"" \
     || bad "wake-word command not recognised"
   TRIG=$(q "select trigger from voice_sessions order by started_at desc limit 1")
   [[ "$TRIG" == wake ]] && ok "conversation recorded as a wake-word session" || bad "last session trigger: $TRIG"
 fi
+# 8: audit chain (checked while JACK still runs: PostgreSQL stops with it)
+TOTAL=$(q "select count(*) from audit_events")
+BROKEN=$(q "select count(*) from (select seq, prev_hash, lag(hash) over (order by seq) as p, row_number() over (order by seq) as n from audit_events) x where (n = 1 and prev_hash <> '$(printf '0%.0s' $(seq 1 64))') or (n > 1 and prev_hash <> p) or seq <> n")
+[[ "$BROKEN" == 0 && "${TOTAL:-0}" -gt 10 ]] && ok "audit chain links intact (linked $TOTAL events)" || bad "audit chain: $BROKEN broken links of $TOTAL"
 kill -9 "$APP_PID"; wait "$APP_PID" 2>/dev/null
-wait_until 15 no_services && ok "service shut itself down after the app was SIGKILLed" \
-  || bad "orphaned service after app SIGKILL: $(all_service_pids | tr '\n' ' ')"
-
-# 8: audit chain
-CHAIN=$(python3 - "$DB" <<'EOF'
-import sqlite3, sys
-rows = sqlite3.connect(sys.argv[1]).execute("select seq, prev_hash, hash from audit_events order by seq").fetchall()
-linked = all(r[1] == ("0" * 64 if i == 0 else rows[i - 1][2]) and r[0] == i + 1 for i, r in enumerate(rows))
-print(("linked" if linked else "broken"), len(rows))
-EOF
-)
-[[ "$CHAIN" == linked* ]] && ok "audit chain links intact ($CHAIN events)" || bad "audit chain: $CHAIN"
+wait_until 15 no_services && ok "service (and its PostgreSQL and Temporal) shut down after the app was SIGKILLed" \
+  || bad "orphaned processes after app SIGKILL: $(all_service_pids | tr '\n' ' ') $(stray_pids)"
 
 echo "----"; echo "passed=$PASS failed=$FAIL"
 [[ $FAIL -eq 0 ]]

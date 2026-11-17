@@ -289,7 +289,7 @@ source — user, default, inferred — conflicts, specification JSON, scale) and
 
 | Store | Holds | Process |
 |---|---|---|
-| PostgreSQL 16.15 (+ pgvector 0.8.7 for M8), embedded | tasks, steps, approvals, audit, discovery, usage, voice history — everything except preferences | `postgres` started by the service on `127.0.0.1:<random port>`, data in `data\pg16`. Binaries from the `pixeltable-pgserver` wheel (PostgreSQL Licence; wrapper Apache-2.0). Superuser-less role `jack`, SCRAM password generated at first start and kept in Windows Credential Manager (POSIX dev builds: OS keyring, else a 0600 file next to the cluster, which is no weaker than the cluster files themselves) |
+| PostgreSQL 16.15 (+ pgvector 0.8.7 for M8), embedded | tasks, steps, approvals, audit, discovery, usage, voice history — everything except preferences | `postgres` started by the service on `127.0.0.1:<random port>`, data in `data\pg16`. Binaries from the `pixeltable-pgserver` wheel (PostgreSQL Licence; wrapper Apache-2.0). Role `jack` owns the cluster (it needs to create extensions such as pgvector in M8); its SCRAM password is generated at first start and kept in Windows Credential Manager; no `trust` rules (POSIX dev builds: OS keyring, else a 0600 file next to the cluster, which is no weaker than the cluster files themselves) |
 | SQLite `data\prefs.db` | preferences (`settings`) | in-process |
 | SQLite `data\temporal\temporal.db` | Temporal workflow history | Temporal dev server (Temporal CLI 1.9.1 / Server 1.32.0, MIT), started by the service on `127.0.0.1:<random port>`, headless |
 

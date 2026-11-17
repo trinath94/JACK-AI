@@ -1,4 +1,4 @@
-# User Guide (0.1.0 developer preview — Milestone 5)
+# User Guide (0.1.0 developer preview — Milestone 6)
 
 ## What works today
 
@@ -51,11 +51,26 @@
   - With Claude set up (Usage and Billing), JACK understands free-form answers better; otherwise it
     uses its own local rules. *How JACK asks* lets you choose local rules only, so nothing is sent
     to Claude.
-  > After approval the task waits in *Planning*: planning and building start in later milestones,
-  > and JACK says so.
+  > After approval (or straight away for small jobs) JACK starts the work — see **Active Tasks**.
+- **Active Tasks** (Ctrl+2) — work that survives crashes and restarts:
+  - Each task has a plan of steps, each owned by an agent role (Solution Architect, Research Agent, …).
+    You can see what's running, what's done, and why a task is waiting.
+  - **What JACK can do itself today:** documents written by Claude — research answers, documentation,
+    solution architectures, creative briefs, diagnostic and audit plans — saved as files you can open
+    in the task. Steps that need later milestones (building software M11, testing M12, deployment M13,
+    servers M10, image providers M14, Windows automation M15) wait there and say which milestone.
+  - **Pause, Resume, Cancel**, and **Retry** for a failed task (it continues from the first unfinished
+    step; finished steps aren't redone).
+  - If JACK, the service or Windows stops in the middle of a task, JACK picks it up on the next start
+    and tells you. Steps that are safe to repeat are repeated; any other interrupted step waits for
+    you to check it.
+  - If the API key is missing or rejected, or a spending limit is reached, the task pauses and
+    continues by itself once you fix it in Usage and Billing.
+- **Approval queue** (Home, and on the task): every request names exactly what it allows, on what,
+  and until when. Approve or deny there, or answer JACK's spoken question. Each request can be
+  decided once.
 - **Notification centre** (bell icon): tasks that finish, fail, are cancelled or need input;
   components that degrade or recover; a microphone that opens but delivers no audio.
-- **Active Tasks**: every task with its full timeline. Pause, resume and cancel are recorded permanently.
 - **Security**: the tamper-evident audit log, including every time the microphone was opened.
 - **Settings**: system, dark or light theme; accent colour; compact sidebar; **start JACK when you sign in to Windows**
   (JACK starts in the tray); a list of keyboard shortcuts.
@@ -93,6 +108,6 @@ If another application already uses Ctrl+Shift+Space, JACK shows an error and th
 
 ## Not available yet
 
-Planning and carrying out the work (M6–M7); approvals (M6);
+The multi-agent system (M7);
 agents and task execution (M7); GitHub (M9); servers (M10); deployments (M13); creative studio (M14).
 Each one is labelled in the app with its milestone.

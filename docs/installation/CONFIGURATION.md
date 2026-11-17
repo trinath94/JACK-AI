@@ -20,7 +20,11 @@ The desktop app sets these for you. They only matter when running the service by
 | `JACK_PORT` | `8765` | The desktop app picks a free port |
 | `JACK_HOST` | `127.0.0.1` | Must be a loopback address; anything else is refused |
 | `JACK_DATA_DIR` | platform app-data dir | Database location; logs go to the sibling `logs` folder |
-| `JACK_DATABASE_URL` | SQLite in the data dir | e.g. `postgresql+psycopg://…` (install the `postgres` extra) |
+| `JACK_DATABASE` | `embedded` | `embedded`: JACK's own PostgreSQL 16 (decision D-1), falling back to SQLite if it can't run; `sqlite`: SQLite only |
+| `JACK_DATABASE_URL` | unset | Overrides both, e.g. `postgresql+psycopg://…` for a server you run yourself (tests, CI) |
+| `JACK_TEMPORAL` | `on` | `off` disables durable task orchestration (tasks then wait in planning) |
+| `JACK_TEMPORAL_BIN` | the `temporal` sidecar next to `jack-service` | Path to the Temporal CLI, for development (`python scripts/build_temporal.py <path>`) |
+| `JACK_PG_BINARIES` | bundled | A `pginstall` folder with `bin/postgres`, for development |
 | `JACK_DEV_MODE` | `0` | `1` also allows the Vite dev origin `http://localhost:1420` |
 | `JACK_EXIT_WITH_PARENT` | `0` | `1` exits the service if its parent process dies (POSIX) |
 | `JACK_LOG_LEVEL` | `INFO` | |

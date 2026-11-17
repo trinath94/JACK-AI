@@ -27,6 +27,12 @@
 | My new request was taken as an answer | A conversation was still waiting for an answer (for 30 minutes) | Start with a clear request ("Jack, build…", "Create…"), press **Start a new request instead** on Home, or say "cancel" first |
 | Answers in my own words aren't understood | JACK is using local rules (no Claude provider set up, or *Local rules only* chosen) | Set up Claude in Usage and Billing; the Command Centre shows which one is in use |
 | "I can only audit systems you own…" | You said no to the authorisation question of a security audit | Start again and confirm only if you own the systems or have written permission |
+| Health shows `database: degraded — SQLite fallback` | Embedded PostgreSQL couldn't start (the reason is shown) | Check `logs\postgres.log`. JACK keeps working on SQLite and says so; nothing is split between the two |
+| A task is paused with "Needs Claude", "rejected the API key" or "spending limit" | Something only you can fix | Fix it in Usage and Billing. The task continues by itself (no restart), or press **Resume** |
+| A task is paused at a step that "arrives in Milestone N" | JACK can't do that kind of work yet | Expected in this version; the task continues once that milestone ships, or cancel it |
+| "needs your review" after a crash | A step that isn't safe to repeat was interrupted | Check what it may have done, then **Resume** to run it again, or **Cancel** |
+| "JACK couldn't find this task's progress" | Temporal's history (`data\temporal\temporal.db`) was lost | **Retry** or **Cancel** the task. Finished steps and files are kept |
+| Health shows `orchestrator: degraded` | The Temporal sidecar didn't start | See `logs\temporal.log`. Tasks wait in planning and start when it runs again |
 
 ## Collecting diagnostics
 

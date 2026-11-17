@@ -71,7 +71,7 @@ class FakeAnthropic:
             body = await request.json()
             if self.delay:
                 await asyncio.sleep(self.delay)
-            if self.step_delay and "Your task —" in json.dumps(body.get("messages", [])):
+            if self.step_delay and "Your task —" in json.dumps(body.get("messages", []), ensure_ascii=False):
                 await asyncio.sleep(self.step_delay)
             self.requests.append({"headers": dict(request.headers), "body": body,
                                   "query": dict(request.query_params)})

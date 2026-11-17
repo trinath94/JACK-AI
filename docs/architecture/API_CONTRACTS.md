@@ -131,10 +131,24 @@ approval_required`.
 WebSocket topics added in M5: `discovery.updated { session_id, task_id, status }`,
 `discovery.settings`, `voice.followup { wait_s }`.
 
+### Durable tasks and approvals — M6
+| Method | Path | Body | Response |
+|---|---|---|---|
+| GET | `/v1/tasks/{id}/execution` | – | `{ task_id, summary, steps[], artifacts[], approvals[], runs[] }` |
+| GET | `/v1/tasks/{id}/artifacts/{artifact_id}` | – | the file's text (only files inside JACK's workspaces) |
+| POST | `/v1/tasks/{id}/retry` | – | `{ retrying }` · 409 unless the task FAILED · 503 when orchestration is down |
+| POST | `/v1/tasks/{id}/pause` · `/resume` · `/cancel` | `{ reason? }` | the task. With a running workflow these become signals applied at the next safe point (a running step finishes; cancel stops it) |
+| GET | `/v1/approvals` | `?status=pending|approved|denied|…&limit` | `[approval]`; `nonce` only while pending |
+| POST | `/v1/approvals/{id}/decide` | `{ decision: approve|deny, nonce }` | approval · 409 `approval_stale` (nonce mismatch) or `approval_not_pending` · 404 |
+| GET | `/v1/orchestrator/status` | – | `{ status, detail, recovered{resumed, started, needs_review} }` |
+
+WebSocket topics added in M6: `task.step { task_id, step_id, key, status }`,
+`approval.updated { id, task_id, status }`. Health gains an `orchestrator` component, and the
+`database` component reports PostgreSQL or the reason for the SQLite fallback.
+
 ### Planned (contracts drafted, not implemented)
 | Area | Routes | Milestone |
 |---|---|---|
-| Approvals | `GET /v1/approvals?status=pending`, `POST /v1/approvals/{id}/decide` (user re-auth for privileged) | M6 |
 | Projects/Memory | `/v1/projects`, `/v1/projects/{id}/search` | M8 |
 | GitHub | `/v1/github/accounts`, `/v1/github/repos`, `/v1/github/repos/{id}/pulls` | M9 |
 | Servers | `/v1/servers`, `/v1/servers/{id}/hostkey/verify`, `/v1/servers/{id}/diagnostics` | M10 |

@@ -11,7 +11,7 @@ import sys
 import uvicorn
 from pydantic import ValidationError
 
-from jack_api import lifeline, redaction
+from jack_api import bundle_cleanup, lifeline, redaction
 from jack_api.app import create_app
 from jack_api.config import Settings
 
@@ -26,6 +26,7 @@ def main() -> int:
         return 2
     redaction.install(settings.log_level, settings.log_dir)
     redaction.register_secret(settings.session_token.get_secret_value())
+    bundle_cleanup.clean_in_background()  # copies left by crashes (frozen builds only)
     app = create_app(settings)
     if settings.exit_with_parent:
         lifeline.watch_parent(supervisor_pid=settings.supervisor_pid)

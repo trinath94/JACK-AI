@@ -17,11 +17,12 @@ files at the time of writing; re-verify before each release (`scripts/licence-re
 | Python runtime (frozen via PyInstaller) | 3.12+ | PSF | PyInstaller bootloader is GPL-2.0 **with a bundling exception** permitting distribution of frozen apps under any licence |
 | FastAPI, Starlette, Pydantic, Uvicorn | see `uv.lock` | MIT / BSD-3 | |
 | SQLAlchemy, Alembic | 2.1.x / 1.x | MIT | |
-| LangGraph | 1.x | MIT | M6 |
-| Temporal Python SDK | 1.x | MIT | M6 |
-| Temporal CLI (dev server) | 1.x | MIT | Sidecar, M6 |
-| PostgreSQL (embedded) | 16.x | PostgreSQL Licence | M6, pending D-1 |
-| pgvector | 0.8.x | PostgreSQL Licence | M8 |
+| LangGraph | 1.x | MIT | M7 (agent graphs; not needed for M6's plan templates) |
+| Temporal Python SDK (`temporalio`) | **1.35.0** | MIT | **M6** |
+| Temporal CLI (dev server) | **1.9.1** (Temporal Server 1.32.0) | MIT | **M6** sidecar. Built by `scripts/build_temporal.py` from the pinned release via the Go module proxy; both source modules checked against pinned hashes and Go's checksum database (sum.golang.org). Toolchain go1.26.8 |
+| PostgreSQL (embedded) | **16.15** | PostgreSQL Licence | **M6** (decision D-1). Binaries from the `pixeltable-pgserver` **0.7.2** wheel (wrapper: Apache-2.0), used as files only; the wheel's PostgreSQL 18 copy is not shipped |
+| psycopg (`psycopg[binary]`) | 3.3.9 | LGPL-3.0 (dynamically loaded) | **M6** (was a dev/optional dependency) |
+| pgvector | 0.8.7 | PostgreSQL Licence | Shipped with the embedded PostgreSQL in M6; used from M8 |
 | openWakeWord | 0.6.x | Apache-2.0 (code). **Pre-trained models: CC BY-NC-SA 4.0 — not usable commercially**, and none exists for "Jack" | **Not shipped.** M3 ships the `keyword-asr` wake-word engine instead; openWakeWord needs a custom-trained model (D-3) |
 | faster-whisper / CTranslate2 | 1.2.1 / 4.9.0 | MIT / MIT | **M3** speech recognition |
 | Whisper models `tiny.en`, `base.en`, `small.en` (CTranslate2 conversions, `Systran/faster-whisper-*`) | – | MIT | **Downloaded on user request**, not bundled (75–484 MB each) |

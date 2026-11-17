@@ -11,7 +11,7 @@ branch, and a report in `docs/milestones/`.
 | 3 | Wake word & speech | 2 | Wake word "Jack"/"Hey Jack" + FA/MD evaluation report; Silero VAD; Whisper (faster-whisper) ASR; Windows SAPI TTS; push-to-talk; privacy mode; conversation history | **Done** ([report](milestones/M3-REPORT.md)) — wake word ships as `keyword-asr`; a custom openWakeWord model remains open (D-3) |
 | 4 | Claude provider abstraction | 1 | Anthropic API provider + Claude Code provider; Credential Manager storage; usage/cost tracking; spend limits; connection test | **Done** ([report](milestones/M4-REPORT.md)) — a successful call against the real API awaits your key |
 | 5 | Requirement discovery | 4 | Category classifier for 19 categories; one-question-at-a-time loop; structured spec; approval for large projects | **Done** ([report](milestones/M5-REPORT.md)) — understanding of free-form answers with real Claude awaits your key |
-| 6 | Durable task orchestration | 1,4 | Temporal sidecar; workflows survive kill -9 and reboot; pause/resume/cancel/retry; approvals; PostgreSQL embedded (D-1) | Not started |
+| 6 | Durable task orchestration | 1,4 | Temporal sidecar; workflows survive kill -9 and reboot; pause/resume/cancel/retry; approvals; PostgreSQL embedded (D-1) | **Done** ([report](milestones/M6-REPORT.md)) — Windows reboot on a real PC still to be tried |
 | 7 | Multi-agent system | 6 | 17 agents with schemas, allow-lists, limits; policy engine; orchestrator review; file conflict detection | Not started |
 | 8 | Project memory | 6 | Indexing, pgvector semantic search, verified-vs-assumption marking, export | Not started |
 | 9 | GitHub | 4,7 | OAuth device flow + fine-grained PAT; multi-account; branch/PR workflow honouring protections; never force-push | Not started |

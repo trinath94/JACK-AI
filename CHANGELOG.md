@@ -5,6 +5,24 @@ versioning: [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+### Added — Milestone 6 (durable task orchestration)
+- **Embedded PostgreSQL 16** (decision D-1): JACK runs its own loopback-only database with a
+  password kept in Windows Credential Manager; preferences stay in SQLite (`prefs.db`). An existing
+  SQLite database is moved across once, verified (row counts, audit chain) and kept as a backup.
+  If PostgreSQL can't run, JACK uses SQLite and says why.
+- **Temporal** (Temporal CLI 1.9.1, built from verified source) runs as a sidecar; every task
+  that leaves requirement discovery gets a durable workflow: plan → approvals → steps → done.
+- Steps per category with agent roles; Claude-written documents saved as files; steps that need
+  later milestones wait honestly and name the milestone.
+- Pause, resume, cancel (applied at a safe point), retry from the first unfinished step.
+- Crash and restart recovery: workflows continue; only steps safe to repeat are repeated; others
+  wait for review; lost history is flagged. A missing or rejected key or a spending limit pauses
+  the task, which continues once fixed.
+- Approvals bound to one action, target, scope and expiry with a single-use nonce, verified in
+  JACK's database; the discovery spec approval is now one of them. Home approval queue.
+- Active Tasks shows steps, waiting reasons, files and approvals.
+- Migration 0006: `task_steps`, `approvals`, `task_artifacts`, `workflow_runs`, `tasks.summary`.
+
 ### Added — Milestone 5 (requirement discovery)
 - Requirement discovery for the 19 task categories of Section 6: JACK identifies the kind of job,
   then asks only the essential questions, one at a time, with options and a sensible default.
