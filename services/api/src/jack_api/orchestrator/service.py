@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import concurrent.futures
+import contextlib
 import logging
 from collections.abc import Coroutine
 from typing import Any
@@ -11,6 +12,7 @@ from typing import Any
 from sqlalchemy import select
 from temporalio.client import Client, WorkflowExecutionStatus
 from temporalio.common import WorkflowIDReusePolicy
+from temporalio.exceptions import WorkflowAlreadyStartedError
 from temporalio.service import RPCError
 from temporalio.worker import Worker
 
@@ -22,6 +24,7 @@ from jack_api.temporal_server import TemporalServer, TemporalUnavailable
 
 log = logging.getLogger(__name__)
 S = TaskStatus
+CLOSE_WAIT_S = 30
 
 
 def workflow_id(task_id: str) -> str:
@@ -114,9 +117,20 @@ class Orchestrator:
 
     async def astart_task(self, task_id: str) -> None:
         assert self.client is not None
-        handle = await self.client.start_workflow(
-            TaskWorkflow.run, task_id, id=workflow_id(task_id), task_queue=TASK_QUEUE,
-            id_reuse_policy=WorkflowIDReusePolicy.ALLOW_DUPLICATE)
+        for attempt in range(2):
+            try:
+                handle = await self.client.start_workflow(
+                    TaskWorkflow.run, task_id, id=workflow_id(task_id), task_queue=TASK_QUEUE,
+                    id_reuse_policy=WorkflowIDReusePolicy.ALLOW_DUPLICATE)
+                break
+            except WorkflowAlreadyStartedError:
+                if attempt:
+                    raise
+                # The previous run marks the task finished from its last activity, a moment
+                # before the run itself closes. A quick Retry lands in that gap: wait for it.
+                old = self.client.get_workflow_handle(workflow_id(task_id))
+                with contextlib.suppress(Exception):
+                    await asyncio.wait_for(old.result(), timeout=CLOSE_WAIT_S)
         await asyncio.to_thread(self._record_run, task_id, handle.result_run_id or "")
         self.d.audit.record("task.workflow.start", outcome="info", actor_type="system",
                             target=f"task:{task_id}", details={"workflow": handle.id})

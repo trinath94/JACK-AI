@@ -84,7 +84,7 @@ A walk through the release build (end-to-end test on embedded PostgreSQL, 26/26)
 - An M5 SQLite database moves across once: rows and conversations intact, audit chain verified, preferences in `prefs.db`, backup kept, never moved twice.
 - With no binaries, JACK falls back to SQLite, health is *degraded*, and a notification gives the reason.
 
-**Orchestration:** 14 tests on a real Temporal server.
+**Orchestration:** 15 tests on a real Temporal server.
 - **Research end to end:** completed, real `answer.md` and `summary.md`, specification in the prompt, usage billed to the task, full audit.
 - **Website:**
   - The approval is decided by voice.
@@ -137,6 +137,7 @@ A walk through the release build (end-to-end test on embedded PostgreSQL, 26/26)
 | 10 | **A step that wasn't safe to repeat was re-run without review** when the setup changed (e.g. a key saved) after a crash: a "setup changed" signal was treated like the user's Resume | An intermittent test failure (≈1 in 2 full runs) | Separate signals: only the user's Resume clears "needs review"; a setup change only re-checks blocked steps. Regression check added; 3 clean full runs |
 | 11 | **A "setup changed" signal could be missed** if it arrived between finding a step blocked and starting to wait, leaving the task paused for good | Windows CI (slower timing) | The workflow notes the counter before checking the step, so an early signal still counts |
 | 13 | **JACK would hang at start-up on Windows**: it read `pg_ctl start`'s output through a pipe that the launched PostgreSQL server inherits and keeps open, so the read never finished | Windows CI (tests hung for 35 min; run cancelled to read the log) | `pg_ctl` output goes to `logs\pg_ctl.log`; the Windows test step now has a 30-minute limit |
+| 14 | **A quick Retry after a failure caused a server error**: the task is marked FAILED from the run's last activity a moment before the run closes, and a Retry in that gap collided with the closing run | Windows CI (intermittent) | Starting a task's workflow waits briefly for a closing run, then starts. A regression test fails on the old code |
 | 12 | **`initdb` failed on Windows when JACK runs as Administrator** because, without admin rights, it couldn't inspect the parent folders it tried to create | Windows CI (after fix 5) | JACK creates the cluster folder itself, so `initdb` never walks the parents |
 
 The test infrastructure also needed fixes (not product defects):

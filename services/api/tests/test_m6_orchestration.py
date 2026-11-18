@@ -254,6 +254,21 @@ def test_failed_task_can_be_retried_from_where_it_stopped(jack: Jack,
         assert c.post(f"/v1/tasks/{tid}/retry").status_code == 409
 
 
+def test_starting_again_while_the_last_run_is_closing_waits_for_it(jack: Jack,
+                                                                  fake: FakeAnthropic) -> None:
+    """A Retry can land between the task being marked finished and its run closing."""
+    fake.delay = 3
+    with jack as c:
+        tid, _ = research(c)
+        wait(lambda: steps(c, tid).get("research", {}).get("status") == "running")
+        orch = c.app.state.svc.orchestrator  # type: ignore[attr-defined]
+        orch.start_task(tid)  # the first run is still open: must wait, not error
+        runs = execution(c, tid)["runs"]
+        assert len(runs) == 2 and runs[0]["status"] == "completed"
+        wait(lambda: status(c, tid) == "COMPLETED")
+        assert steps(c, tid)["research"]["attempts"] == 1  # nothing redone
+
+
 # ------------------------------------------------------------------ approvals inside a workflow
 @pytest.fixture
 def risky_plan(monkeypatch: pytest.MonkeyPatch) -> list[str]:
