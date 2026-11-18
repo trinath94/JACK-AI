@@ -262,6 +262,10 @@ class EmbeddedPostgres:
         pw = secrets.token_urlsafe(32)
         tmp = self.data_dir / f"pg{PG_MAJOR}.init"
         shutil.rmtree(tmp, ignore_errors=True)
+        # Create it ourselves: initdb then uses the empty folder instead of creating its
+        # parents, which it may not be able to inspect after dropping administrator rights.
+        tmp.mkdir(parents=True)
+        grant_current_user(tmp)
         with tempfile.NamedTemporaryFile("w", delete=False, dir=self.data_dir,
                                          prefix=".pwfile-") as fh:
             fh.write(pw)

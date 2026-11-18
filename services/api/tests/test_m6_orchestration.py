@@ -371,6 +371,11 @@ def test_unsafe_step_interrupted_by_a_restart_needs_review(
         wait(lambda: status(c, tid) == "WAITING_FOR_INFORMATION", timeout=90)
         assert steps(c, tid)["risky"]["status"] == "needs_review"
         assert "not safe to repeat" in c.get(f"/v1/tasks/{tid}").json()["status_reason"]
+        # A setup change (here: saving the key again) is not a review: nothing re-runs.
+        assert c.put("/v1/ai/anthropic/key", json={"api_key": VALID_KEY}).status_code == 204
+        time.sleep(3)
+        assert status(c, tid) == "WAITING_FOR_INFORMATION"
+        assert steps(c, tid)["risky"]["status"] == "needs_review"
         c.post(f"/v1/tasks/{tid}/resume", json={})  # the user reviewed it: run it again
         wait(lambda: status(c, tid) == "COMPLETED", timeout=60)
 

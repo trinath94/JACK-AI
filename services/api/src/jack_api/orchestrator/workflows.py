@@ -38,7 +38,8 @@ class TaskWorkflow:
         self.paused = False
         self.cancel_reason: str | None = None
         self.decided: set[str] = set()
-        self.wake = 0
+        self.wake = 0      # any reason to look again: the user resumed, or the setup changed
+        self.resumes = 0   # the user pressed Resume (only this clears "needs review")
         self.current: str | None = None
         self.phase = "starting"
 
@@ -51,6 +52,7 @@ class TaskWorkflow:
     def resume(self) -> None:
         self.paused = False
         self.wake += 1
+        self.resumes += 1
 
     @workflow.signal
     def cancel(self, reason: str) -> None:
@@ -84,9 +86,16 @@ class TaskWorkflow:
     def _decided_or_cancelled(self, aid: str) -> Callable[[], bool]:
         return lambda: aid in self.decided or self.cancel_reason is not None
 
-    async def _wait_wake(self) -> None:
-        w = self.wake
-        await workflow.wait_condition(lambda: self.wake != w or self.cancel_reason is not None)
+    async def _wait_wake(self, since: int) -> None:
+        """Wait for resume/capabilities_changed *after* ``since`` — a counter read before the
+        check that found the step blocked, so a signal arriving in between isn't missed."""
+        await workflow.wait_condition(
+            lambda: self.wake != since or self.cancel_reason is not None)
+
+    async def _wait_resume(self, since: int) -> None:
+        """Wait for the user's Resume only (a setup change is not a review)."""
+        await workflow.wait_condition(
+            lambda: self.resumes != since or self.cancel_reason is not None)
 
     # ------------------------------------------------------------------ run
     @workflow.run
@@ -104,16 +113,23 @@ class TaskWorkflow:
                     await workflow.wait_condition(
                         lambda: not self.paused or self.cancel_reason is not None)
                     if self.cancel_reason is None:
-                        await self._act("set_resumed", task_id)
+                        await self._act("set_resumed", task_id, True)
                     continue
+                seen, seen_resumes = self.wake, self.resumes
                 prep: dict[str, Any] = await self._act("prepare_step", task_id, sid)
                 status = prep["status"]
                 if status == "done":
                     break
-                if status in ("blocked", "needs_review"):
-                    await self._wait_wake()
+                if status == "needs_review":
+                    await self._wait_resume(seen_resumes)
                     if self.cancel_reason is None:
-                        await self._act("set_resumed", task_id)
+                        await self._act("set_resumed", task_id, True)
+                    continue
+                if status == "blocked":
+                    await self._wait_wake(seen)
+                    if self.cancel_reason is None:
+                        await self._act("set_resumed", task_id,
+                                        self.resumes != seen_resumes)
                     continue
                 if status == "needs_approval":
                     aid: str = prep["approval_id"]
@@ -132,7 +148,7 @@ class TaskWorkflow:
                         return await self._finish(task_id, "cancelled",
                                                   "You declined a required approval")
                     if verdict == "expired":
-                        await self._wait_wake()
+                        await self._wait_resume(seen_resumes)  # "Resume to ask again"
                     self.decided.discard(aid)  # "pending": the signal didn't match the record
                     continue
                 if await self._run_step(task_id, sid, bool(prep.get("idempotent", True))):

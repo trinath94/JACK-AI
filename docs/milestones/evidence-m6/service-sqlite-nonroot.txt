@@ -6,4 +6,4 @@ SKIPPED [1] tests/test_m3_real_speech.py:109: needs JACK_TEST_MODELS_DIR (tiny.e
 SKIPPED [1] tests/test_m3_tts.py:24: no audio output device here: espeak-ng could not play audio: error: No such file or directory
 SKIPPED [1] tests/test_m3_tts.py:33: Windows SAPI only
 SKIPPED [1] tests/test_m4_keyring.py:13: Windows Credential Manager only
-259 passed, 7 skipped in 159.32s (0:02:39)
+259 passed, 7 skipped in 164.62s (0:02:44)

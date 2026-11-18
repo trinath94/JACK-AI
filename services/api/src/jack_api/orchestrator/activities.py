@@ -292,13 +292,13 @@ class Activities:
             self._move(task_id, S.PAUSED, reason)
 
     @activity.defn(name="set_resumed")
-    def set_resumed(self, task_id: str) -> None:
-        """The user resumed (or the setup changed): interrupted steps they've reviewed may run
-        again, and blocked steps are checked afresh."""
+    def set_resumed(self, task_id: str, by_user: bool = True) -> None:
+        """Blocked steps are checked afresh. Interrupted steps that aren't safe to repeat run
+        again only when the *user* resumed (that is their review), never on a setup change."""
+        reopen = ("needs_review", "blocked") if by_user else ("blocked",)
         with self.d.db.session() as s:
             for st in s.scalars(select(TaskStep).where(
-                    TaskStep.task_id == task_id,
-                    TaskStep.status.in_(("needs_review", "blocked")))):
+                    TaskStep.task_id == task_id, TaskStep.status.in_(reopen))):
                 st.status = "pending"
                 st.blocked_reason = None
                 st.updated_at = utcnow()
