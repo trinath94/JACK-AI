@@ -71,7 +71,7 @@ A walk through the release build (end-to-end test on embedded PostgreSQL, 26/26)
 | `pnpm audit --prod` | no known vulnerabilities | [pnpm-audit.txt](evidence-m6/pnpm-audit.txt) |
 | **End-to-end, release build, embedded PostgreSQL** (normal user, voice off) | **26/26 passed** | [e2e-linux-postgres.txt](evidence-m6/e2e-linux-postgres.txt) |
 | **End-to-end, release build, voice on** (as root, so the SQLite fallback) | **37/37 passed** | [e2e-linux-root-voice.txt](evidence-m6/e2e-linux-root-voice.txt) |
-| GitHub Actions CI (incl. Windows) | **5/5 jobs green** (§6) | [run 44213424275](https://github.com/trinath94/jack-ai/actions/runs/44213424275) |
+| GitHub Actions CI (incl. Windows) | **5/5 jobs green** (§6) | [run 44286967450](https://github.com/trinath94/jack-ai/actions/runs/44286967450) |
 
 ### What the new tests prove
 
@@ -171,7 +171,7 @@ The test infrastructure also needed fixes (not product defects):
 
 ## 6. CI
 
-[Run 44213424275](https://github.com/trinath94/jack-ai/actions/runs/44213424275) on commit `9fbaa59`: **all 5 jobs passed.**
+[Run 44286967450](https://github.com/trinath94/jack-ai/actions/runs/44286967450) on commit `2de2f4e`: **all 5 jobs passed.**
 
 | Job | Result |
 |---|---|
@@ -179,7 +179,7 @@ The test infrastructure also needed fixes (not product defects):
 | Frontend | ✅ type drift check, `tsc`, 43 tests, build |
 | Rust core | ✅ fmt, clippy, tests including supervisor integration |
 | End-to-end, Linux release build | ✅ **37/37**, the first run with **voice and embedded PostgreSQL together** (GitHub's runner isn't root): typed and spoken discovery, the task waiting for and then using Claude, survival of a service SIGKILL mid-step and of a simulated power loss on PostgreSQL, no orphaned processes |
-| Windows x64 | ✅ **253 passed, 13 skipped, 0 failed**, *including* the embedded-PostgreSQL and Temporal orchestration tests, as Administrator. The frozen `jack-service.exe` reports `database healthy — PostgreSQL 16 on 127.0.0.1:…`, `orchestrator healthy — Temporal on 127.0.0.1:…`, and a secure Windows Credential Manager. Installers: NSIS 172.6 MB, MSI 187.4 MB (unsigned) |
+| Windows x64 | ✅ **254 passed, 13 skipped, 0 failed**, *including* the embedded-PostgreSQL and Temporal orchestration tests, as Administrator. The frozen `jack-service.exe` reports `database healthy — PostgreSQL 16 on 127.0.0.1:…`, `orchestrator healthy — Temporal on 127.0.0.1:…`, and a secure Windows Credential Manager. Installers: NSIS 172.6 MB, MSI 187.4 MB (unsigned) |
 
 Earlier runs on this branch failed, and each failure found a real problem now fixed:
 - Windows `initdb` without admin rights (defects 5 and 12).
@@ -187,6 +187,7 @@ Earlier runs on this branch failed, and each failure found a real problem now fi
 - A CI path (test infrastructure).
 - A missed wake signal (defect 11).
 - The Windows start-up hang from `pg_ctl`'s inherited pipe (defect 13). That run was cancelled after 35 minutes to read its log.
+- A Retry colliding with a closing run (defect 14). It passed once on commit `9fbaa59`, then failed intermittently on Windows; fixed in `2de2f4e`.
 
 ## 7. How to try it on Windows
 
