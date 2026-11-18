@@ -1,4 +1,4 @@
-PASS  supervisor started bundled sidecar (pid 13699)
+PASS  supervisor started bundled sidecar (pid 13880)
 PASS  service started and migrated the database
 PASS  main window shown
 PASS  typed command persisted as task (WAITING_FOR_INFORMATION)
@@ -18,11 +18,11 @@ PASS  task survived a service SIGKILL mid-step: resumed, step repeated (attempt 
 PASS  restart recorded the recovery (task.recover in the audit log)
 PASS  power loss simulated: app, service, PostgreSQL and Temporal all killed
 PASS  task survived a power loss: JACK restarted, recovered it and finished (PostgreSQL, Temporal history intact)
-PASS  service restarted after SIGKILL (old 14952, new 15379)
+PASS  service restarted after SIGKILL (old 15123, new 15578)
 PASS  audit records 3 service starts
 PASS  old service tree exited (no orphan after crash)
 PASS  app still running after window close (tray)
 PASS  no service, PostgreSQL or Temporal processes after SIGTERM quit
 PASS  audit chain links intact (linked 79 events)
 PASS  service (and its PostgreSQL and Temporal) shut down after the app was SIGKILLed
-26/26 passed (run as a normal user: embedded PostgreSQL 16; voice off)
+26/26 passed (run as a normal user: embedded PostgreSQL 16; voice off; final code ec75c91)

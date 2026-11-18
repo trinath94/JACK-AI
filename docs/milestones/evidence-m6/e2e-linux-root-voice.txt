@@ -1,4 +1,4 @@
-PASS  supervisor started bundled sidecar (pid 27332)
+PASS  supervisor started bundled sidecar (pid 16121)
 PASS  service started and migrated the database
 PASS  main window shown
 PASS  typed command persisted as task (WAITING_FOR_INFORMATION)
@@ -13,7 +13,7 @@ PASS  usage recorded with an estimated cost ($0.000148)
 PASS  API received the stored key as a Bearer token, with refusal fallback on
 PASS  API key appears nowhere in the database or logs
 PASS  global hotkey Ctrl+Shift+Space opened the microphone (source=hotkey)
-PASS  releasing the hotkey closed the microphone after 6062 ms
+PASS  releasing the hotkey closed the microphone after 4507 ms
 PASS  real audio levels arrived from the virtual microphone (no-audio watchdog silent)
 PASS  spoken command recognised and saved as a voice task: "Build a professional corporate website"
 PASS  conversation history recorded (2 turns)
@@ -25,7 +25,7 @@ PASS  task survived a service SIGKILL mid-step: resumed, step repeated (attempt 
 PASS  restart recorded the recovery (task.recover in the audit log)
 PASS  power loss simulated: app, service, PostgreSQL and Temporal all killed
 PASS  task survived a power loss: JACK restarted, recovered it and finished (SQLite, Temporal history intact)
-PASS  service restarted after SIGKILL (old 28749, new 29199)
+PASS  service restarted after SIGKILL (old 17539, new 17998)
 PASS  audit records 3 service starts
 PASS  old service tree exited (no orphan after crash)
 PASS  app still running after window close (tray)
@@ -36,4 +36,4 @@ PASS  wake-word command saved as a voice task: "Create a professional company lo
 PASS  conversation recorded as a wake-word session
 PASS  audit chain links intact (linked 98 events)
 PASS  service (and its PostgreSQL and Temporal) shut down after the app was SIGKILLed
-37/37 passed (run as root: PostgreSQL refuses root, so JACK used its SQLite fallback; voice on)
+37/37 passed (run as root: PostgreSQL refuses root, so JACK used its SQLite fallback; voice on; final code ec75c91)
