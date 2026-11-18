@@ -136,6 +136,7 @@ A walk through the release build (end-to-end test on embedded PostgreSQL, 26/26)
 | 9 | **Temporal build broke as a normal user** (copied read-only Go module source) | CI | The copy is made writable first |
 | 10 | **A step that wasn't safe to repeat was re-run without review** when the setup changed (e.g. a key saved) after a crash: a "setup changed" signal was treated like the user's Resume | An intermittent test failure (≈1 in 2 full runs) | Separate signals: only the user's Resume clears "needs review"; a setup change only re-checks blocked steps. Regression check added; 3 clean full runs |
 | 11 | **A "setup changed" signal could be missed** if it arrived between finding a step blocked and starting to wait, leaving the task paused for good | Windows CI (slower timing) | The workflow notes the counter before checking the step, so an early signal still counts |
+| 13 | **JACK would hang at start-up on Windows**: it read `pg_ctl start`'s output through a pipe that the launched PostgreSQL server inherits and keeps open, so the read never finished | Windows CI (tests hung for 35 min; run cancelled to read the log) | `pg_ctl` output goes to `logs\pg_ctl.log`; the Windows test step now has a 30-minute limit |
 | 12 | **`initdb` failed on Windows when JACK runs as Administrator** because, without admin rights, it couldn't inspect the parent folders it tried to create | Windows CI (after fix 5) | JACK creates the cluster folder itself, so `initdb` never walks the parents |
 
 The test infrastructure also needed fixes (not product defects):

@@ -206,12 +206,9 @@ class EmbeddedPostgres:
                 "-c", "shared_buffers=32MB", "-c", "password_encryption=scram-sha-256",
                 "-c", "timezone=UTC"]
         if WIN:
-            r = subprocess.run([self._bin("pg_ctl"), "start", "-D", str(self.cluster), "-w",
-                                "-t", str(int(READY_TIMEOUT_S)), "-l", str(logf),
-                                "-o", " ".join(opts)],
-                               capture_output=True, text=True, timeout=READY_TIMEOUT_S + 10)
-            if r.returncode != 0:
-                raise PostgresUnavailable(f"PostgreSQL did not start: {_tail(logf, r.stderr)}")
+            rc, out = self._pg_ctl_start(opts, logf)
+            if rc != 0:
+                raise PostgresUnavailable(f"PostgreSQL did not start: {_tail(logf, out)}")
         else:
             self._proc = subprocess.Popen(  # noqa: S603 - fixed binary, no shell
                 [self._bin("postgres"), "-D", str(self.cluster), *opts],
@@ -295,9 +292,10 @@ class EmbeddedPostgres:
         self._stop_stale()
         logf = self.logs_dir / "postgres.log"
         if WIN:
-            subprocess.run([self._bin("pg_ctl"), "start", "-D", str(self.cluster), "-w", "-l",
-                            str(logf), "-o", f"-p {self.port} -c listen_addresses=127.0.0.1"],
-                           capture_output=True, timeout=READY_TIMEOUT_S + 10, check=True)
+            rc, out = self._pg_ctl_start(["-p", str(self.port), "-c",
+                                          "listen_addresses=127.0.0.1"], logf)
+            if rc != 0:
+                raise PostgresUnavailable(f"PostgreSQL did not start: {_tail(logf, out)}")
         else:
             self._proc = subprocess.Popen(  # noqa: S603
                 [self._bin("postgres"), "-D", str(self.cluster), "-p", str(self.port),
@@ -316,6 +314,23 @@ class EmbeddedPostgres:
             self.stop()
             self.port = None
         log.info("initialised embedded PostgreSQL cluster in %s", self.cluster)
+
+    def _pg_ctl_start(self, opts: list[str], logf: Path) -> tuple[int, str]:
+        """Windows: ``pg_ctl start``. Its output goes to a file, never a pipe: the server it
+        launches inherits pg_ctl's handles and would hold a pipe open forever, so reading
+        pg_ctl's output would never finish."""
+        out_file = self.logs_dir / "pg_ctl.log"
+        with open(out_file, "wb") as out:
+            r = subprocess.run([self._bin("pg_ctl"), "start", "-D", str(self.cluster), "-w",
+                                "-t", str(int(READY_TIMEOUT_S)), "-l", str(logf),
+                                "-o", " ".join(opts)],
+                               stdin=subprocess.DEVNULL, stdout=out, stderr=subprocess.STDOUT,
+                               timeout=READY_TIMEOUT_S + 10)
+        try:
+            text = out_file.read_text(errors="replace")[-500:]
+        except OSError:
+            text = ""
+        return r.returncode, text
 
     def _stop_stale(self) -> None:
         """Stop a server left running by a crashed previous service (same cluster)."""
