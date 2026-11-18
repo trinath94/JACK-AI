@@ -71,7 +71,7 @@ A walk through the release build (end-to-end test on embedded PostgreSQL, 26/26)
 | `pnpm audit --prod` | no known vulnerabilities | [pnpm-audit.txt](evidence-m6/pnpm-audit.txt) |
 | **End-to-end, release build, embedded PostgreSQL** (normal user, voice off) | **26/26 passed** | [e2e-linux-postgres.txt](evidence-m6/e2e-linux-postgres.txt) |
 | **End-to-end, release build, voice on** (as root, so the SQLite fallback) | **37/37 passed** | [e2e-linux-root-voice.txt](evidence-m6/e2e-linux-root-voice.txt) |
-| GitHub Actions CI (incl. Windows) | _see §6_ | |
+| GitHub Actions CI (incl. Windows) | **5/5 jobs green** (§6) | [run 44213424275](https://github.com/trinath94/jack-ai/actions/runs/44213424275) |
 
 ### What the new tests prove
 
@@ -161,7 +161,7 @@ The test infrastructure also needed fixes (not product defects):
 ### Not verified yet
 - A **real Windows reboot** with a task running (Test J on Windows), and the installed app on your PC.
 - **Real Claude** writing step documents (needs your key).
-- **Start-up time on Windows.** PostgreSQL and Temporal start in about 0.3 s on Linux; the installer is about 30 MB bigger (sidecar 181 → 211 MB, plus the 148 MB Temporal sidecar; the compressed installer size will be in CI's build report).
+- **Start-up time on Windows.** PostgreSQL and Temporal start in about 0.3 s on Linux; the Windows installers are now 172.6 MB (NSIS) and 187.4 MB (MSI), carrying the 211 MB service sidecar (was 181 MB) and the 148 MB Temporal sidecar.
 
 ### Not implemented (and why)
 - **Claude-written plans and the 17 agents doing the work:** M7. M6 ships the durable engine they run on.
@@ -170,7 +170,22 @@ The test infrastructure also needed fixes (not product defects):
 
 ## 6. CI
 
-_Filled in after the run on this branch._
+[Run 44213424275](https://github.com/trinath94/jack-ai/actions/runs/44213424275) on commit `9fbaa59`: **all 5 jobs passed.**
+
+| Job | Result |
+|---|---|
+| Python service | ✅ Full suite with embedded PostgreSQL and a Temporal built in CI, then again on a PostgreSQL 16 service; ruff, mypy, pip-audit; real-model speech tests |
+| Frontend | ✅ type drift check, `tsc`, 43 tests, build |
+| Rust core | ✅ fmt, clippy, tests including supervisor integration |
+| End-to-end, Linux release build | ✅ **37/37**, the first run with **voice and embedded PostgreSQL together** (GitHub's runner isn't root): typed and spoken discovery, the task waiting for and then using Claude, survival of a service SIGKILL mid-step and of a simulated power loss on PostgreSQL, no orphaned processes |
+| Windows x64 | ✅ **253 passed, 13 skipped, 0 failed**, *including* the embedded-PostgreSQL and Temporal orchestration tests, as Administrator. The frozen `jack-service.exe` reports `database healthy — PostgreSQL 16 on 127.0.0.1:…`, `orchestrator healthy — Temporal on 127.0.0.1:…`, and a secure Windows Credential Manager. Installers: NSIS 172.6 MB, MSI 187.4 MB (unsigned) |
+
+Earlier runs on this branch failed, and each failure found a real problem now fixed:
+- Windows `initdb` without admin rights (defects 5 and 12).
+- The read-only Go module copy (defect 9).
+- A CI path (test infrastructure).
+- A missed wake signal (defect 11).
+- The Windows start-up hang from `pg_ctl`'s inherited pipe (defect 13). That run was cancelled after 35 minutes to read its log.
 
 ## 7. How to try it on Windows
 
